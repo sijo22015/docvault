@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="DocVault.Api/DocVault.Api.csproj" />
+  <Project Path="DocVault.Application/DocVault.Application.csproj" />
+  <Project Path="DocVault.Domain/DocVault.Domain.csproj" />
+  <Project Path="DocVault.Infrastructure/DocVault.Infrastructure.csproj" />
+  <Project Path="DocVault.Tests/DocVault.Tests.csproj" />
+</Solution>

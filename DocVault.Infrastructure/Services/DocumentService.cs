@@ -1,0 +1,209 @@
+using System.IO.Compression;
+using System.Security.Cryptography;
+using DocVault.Application.DTOs.Common;
+using DocVault.Application.DTOs.Documents;
+using DocVault.Application.Services;
+using DocVault.Domain.Entities;
+using DocVault.Domain.Interfaces;
+using DocVault.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+
+namespace DocVault.Infrastructure.Services;
+
+public class DocumentService : IDocumentService
+{
+    private static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".txt"];
+    private static readonly Dictionary<string, byte[]> MagicBytes = new()
+    {
+        { ".pdf", [0x25, 0x50, 0x44, 0x46] },
+        { ".docx", [0x50, 0x4B, 0x03, 0x04] },
+        { ".doc", [0xD0, 0xCF, 0x11, 0xE0] },
+    };
+
+    private readonly AppDbContext _db;
+    private readonly IFileStorage _storage;
+    private readonly IActivityLogger _logger;
+    private readonly INotificationService _notifier;
+    private readonly long _maxBytes;
+
+    public DocumentService(AppDbContext db, IFileStorage storage, IActivityLogger logger, INotificationService notifier, IConfiguration config)
+    {
+        _db = db;
+        _storage = storage;
+        _logger = logger;
+        _notifier = notifier;
+        _maxBytes = long.Parse(config["Storage:MaxFileSizeMB"] ?? "25") * 1024 * 1024;
+    }
+
+    public async Task<DocumentDto> UploadAsync(UploadDocumentRequest request, Stream fileStream, string originalFileName, string contentType, Guid userId, CancellationToken ct = default)
+    {
+        var ext = Path.GetExtension(originalFileName).ToLowerInvariant();
+        if (!AllowedExtensions.Contains(ext))
+            throw new InvalidOperationException($"File type '{ext}' is not allowed.");
+
+        using var ms = new MemoryStream();
+        await fileStream.CopyToAsync(ms, ct);
+        if (ms.Length > _maxBytes)
+            throw new InvalidOperationException($"File size exceeds the {_maxBytes / 1024 / 1024} MB limit.");
+
+        ms.Position = 0;
+        if (!ValidateMagicBytes(ms, ext))
+            throw new InvalidOperationException("File content does not match its declared type.");
+
+        ms.Position = 0;
+        var hash = await ComputeSha256Async(ms, ct);
+        ms.Position = 0;
+
+        var fy = await _db.FinancialYears.FindAsync([request.FinancialYearId], ct)
+            ?? throw new InvalidOperationException("Financial year not found.");
+        if (fy.IsLocked)
+            throw new InvalidOperationException("This financial year is locked. No new uploads permitted.");
+
+        var storedName = $"{Guid.NewGuid()}{ext}";
+        var subPath = Path.Combine(fy.Label, request.DepartmentId.ToString(), userId.ToString());
+        var fullPath = await _storage.SaveAsync(ms, storedName, subPath, ct);
+
+        var doc = new Document
+        {
+            Title = request.Title,
+            Description = request.Description,
+            OriginalFileName = Path.GetFileName(originalFileName),
+            StoredFileName = storedName,
+            FilePath = fullPath,
+            ContentType = contentType,
+            FileSizeBytes = ms.Length,
+            Sha256Hash = hash,
+            Status = "SUBMITTED",
+            Tags = request.Tags,
+            UserId = userId,
+            DepartmentId = request.DepartmentId,
+            FinancialYearId = request.FinancialYearId,
+            DocumentTypeId = request.DocumentTypeId,
+            SubmittedAt = DateTime.UtcNow
+        };
+
+        _db.Documents.Add(doc);
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("UPLOAD", "Document", doc.Id.ToString(), doc.Title, userId, ct: ct);
+        await _notifier.NotifyAdminsAsync("New Document Uploaded", $"A new document '{doc.Title}' has been uploaded.", ct: ct);
+
+        return await ToDto(doc, ct);
+    }
+
+    public async Task<PagedResult<DocumentDto>> GetUserDocumentsAsync(Guid userId, int page, int pageSize, int? fyId, CancellationToken ct = default)
+    {
+        var query = _db.Documents
+            .Where(d => d.UserId == userId && !d.IsDeleted)
+            .AsQueryable();
+
+        if (fyId.HasValue)
+            query = query.Where(d => d.FinancialYearId == fyId.Value);
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(d => d.UploadedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(d => d.User)
+            .Include(d => d.Department)
+            .Include(d => d.FinancialYear)
+            .Include(d => d.DocumentType)
+            .ToListAsync(ct);
+
+        var dtos = items.Select(d => MapToDto(d));
+        return new PagedResult<DocumentDto>(dtos, total, page, pageSize);
+    }
+
+    public async Task<DocumentDto?> GetByIdAsync(Guid id, Guid? requestingUserId, bool isAdmin, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents
+            .Include(d => d.User)
+            .Include(d => d.Department)
+            .Include(d => d.FinancialYear)
+            .Include(d => d.DocumentType)
+            .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+        if (doc == null) return null;
+        if (!isAdmin && doc.UserId != requestingUserId) return null;
+        return MapToDto(doc);
+    }
+
+    public async Task<Stream> DownloadAsync(Guid id, Guid? requestingUserId, bool isAdmin, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents.FindAsync([id], ct)
+            ?? throw new FileNotFoundException("Document not found.");
+        if (!isAdmin && doc.UserId != requestingUserId)
+            throw new UnauthorizedAccessException("Access denied.");
+        return await _storage.ReadAsync(doc.FilePath, ct);
+    }
+
+    public async Task SoftDeleteAsync(Guid id, Guid userId, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId && !d.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Document not found.");
+        doc.IsDeleted = true;
+        doc.DeletedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await _storage.DeleteAsync(doc.FilePath, ct);
+        await _logger.LogAsync("DELETE", "Document", doc.Id.ToString(), doc.Title, userId, ct: ct);
+    }
+
+    public async Task RestoreAsync(Guid id, Guid userId, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId && d.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Document not found or not deleted.");
+        var grace = 30;
+        if (doc.DeletedAt.HasValue && (DateTime.UtcNow - doc.DeletedAt.Value).TotalDays > grace)
+            throw new InvalidOperationException("Restore window has expired.");
+        doc.IsDeleted = false;
+        doc.DeletedAt = null;
+        await _db.SaveChangesAsync(ct);
+        await _storage.RestoreAsync(doc.FilePath, ct);
+        await _logger.LogAsync("RESTORE", "Document", doc.Id.ToString(), doc.Title, userId, ct: ct);
+    }
+
+    public async Task<IEnumerable<(string FileName, string Hash, bool Mismatch)>> VerifyIntegrityAsync(int financialYearId, CancellationToken ct = default)
+    {
+        var docs = await _db.Documents
+            .Where(d => d.FinancialYearId == financialYearId && !d.IsDeleted)
+            .ToListAsync(ct);
+
+        var results = new List<(string, string, bool)>();
+        foreach (var doc in docs)
+        {
+            try
+            {
+                using var stream = await _storage.ReadAsync(doc.FilePath, ct);
+                var hash = await ComputeSha256Async(stream, ct);
+                results.Add((doc.OriginalFileName, doc.Sha256Hash, hash != doc.Sha256Hash));
+            }
+            catch
+            {
+                results.Add((doc.OriginalFileName, doc.Sha256Hash, true));
+            }
+        }
+        return results;
+    }
+
+    private static bool ValidateMagicBytes(Stream stream, string ext)
+    {
+        if (!MagicBytes.TryGetValue(ext, out var magic)) return true;
+        var header = new byte[magic.Length];
+        stream.ReadExactly(header, 0, header.Length);
+        return header.SequenceEqual(magic);
+    }
+
+    private static async Task<string> ComputeSha256Async(Stream stream, CancellationToken ct)
+    {
+        var bytes = await SHA256.HashDataAsync(stream, ct);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static async Task<DocumentDto> ToDto(Document doc, CancellationToken ct) => MapToDto(doc);
+
+    private static DocumentDto MapToDto(Document d) => new(
+        d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes,
+        d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt,
+        d.User?.FullName ?? "", d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "");
+}

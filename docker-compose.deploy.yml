@@ -1,0 +1,70 @@
+# docker-compose.deploy.yml
+# Use this file on a machine that does NOT have the source code.
+# All images are loaded from .tar files (see import-and-run.ps1 / import-and-run.sh).
+#
+# To customise:
+#   • Change Cors__Origins__0 to the machine's IP if the browser runs on a different host.
+#   • Change Jwt__SigningKey to a strong random secret before going to production.
+
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: docvault-db
+    environment:
+      POSTGRES_DB: docvault
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: docvault-api
+    container_name: docvault-api
+    ports:
+      - "5080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=docvault;Username=postgres;Password=postgres
+      - Jwt__SigningKey=DocVault-Super-Secret-Signing-Key-Change-In-Production-32chars+
+      - Jwt__Issuer=DocVault
+      - Jwt__Audience=DocVault.Client
+      - Storage__RootPath=/app/storage
+      # Update this to your machine's IP if accessing from another device on the network
+      # e.g.  Cors__Origins__0=http://192.168.1.50:3000
+      - Cors__Origins__0=http://localhost:3000
+    volumes:
+      - docvault_storage:/app/storage
+      - docvault_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: docvault-web
+    container_name: docvault-web
+    ports:
+      - "3000:80"
+    environment:
+      # Internal Docker network name — keep as-is
+      - BACKEND_URL=http://api:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  docvault_storage:
+  docvault_logs:

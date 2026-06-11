@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+logs/
+storage/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Environment
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+.env
+.env.local
+
+# Deploy artifacts
+docker-export/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db

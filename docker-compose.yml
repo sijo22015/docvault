@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: docvault-db
+    environment:
+      POSTGRES_DB: docvault
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: docvault-api
+    build:
+      context: .
+      dockerfile: DocVault.Api/Dockerfile
+    container_name: docvault-api
+    ports:
+      - "5080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Key must match GetConnectionString("DefaultConnection") in DependencyInjection.cs
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=docvault;Username=postgres;Password=postgres
+      - Jwt__SigningKey=DocVault-Super-Secret-Signing-Key-Change-In-Production-32chars+
+      - Jwt__Issuer=DocVault
+      - Jwt__Audience=DocVault.Client
+      - Storage__RootPath=/app/storage
+      # Change Cors__Origins__0 to your server's URL when deploying to a remote machine
+      # e.g.  Cors__Origins__0=http://192.168.1.50:3000
+      - Cors__Origins__0=http://localhost:3000
+      - Cors__Origins__1=http://localhost:5173
+    volumes:
+      - docvault_storage:/app/storage
+      - docvault_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: docvault-web
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docvault-web
+    ports:
+      - "3000:80"
+    environment:
+      # Internal Docker service name — do not change unless you rename the api service
+      - BACKEND_URL=http://api:8080
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  docvault_storage:
+  docvault_logs:

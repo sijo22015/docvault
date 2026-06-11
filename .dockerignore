@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/node_modules/
+frontend/dist/
+storage/
+**/*.user
+**/*.suo
+.git/
+.gitignore
+README.md
+docker-compose*.yml
