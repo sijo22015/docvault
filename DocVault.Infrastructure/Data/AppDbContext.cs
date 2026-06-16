@@ -171,6 +171,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.Property(x => x.LastLoginAt).HasColumnName("LastLoginAt");
             e.Property(x => x.RevokedAt).HasColumnName("RevokedAt");
             e.Property(x => x.RevokedBy).HasColumnName("RevokedBy").HasMaxLength(256);
+            e.Property(x => x.MobileNumber).HasColumnName("MobileNumber").HasMaxLength(20);
+            e.Property(x => x.WhatsAppNumber).HasColumnName("WhatsAppNumber").HasMaxLength(20);
+            e.Property(x => x.ProfilePhotoPath).HasColumnName("ProfilePhotoPath").HasMaxLength(500);
         });
     }
 }

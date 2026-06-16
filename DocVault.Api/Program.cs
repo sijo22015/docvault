@@ -22,6 +22,12 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(opts =>
+{
+    var mb = int.Parse(builder.Configuration["Storage:MaxFileSizeMB"] ?? "25");
+    opts.Limits.MaxRequestBodySize = (mb + 5) * 1024L * 1024L; // headroom for form fields
+});
+
 // Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -200,21 +206,17 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
     }
 
-    if (!await db.DocumentTypes.AnyAsync())
     {
-        db.DocumentTypes.AddRange(
-            new DocVault.Domain.Entities.DocumentType { Name = "Syllabus"            },
-            new DocVault.Domain.Entities.DocumentType { Name = "LessonPlan"          },
-            new DocVault.Domain.Entities.DocumentType { Name = "AttendanceRegister"  },
-            new DocVault.Domain.Entities.DocumentType { Name = "MarksList"           },
-            new DocVault.Domain.Entities.DocumentType { Name = "MinutesOfMeeting"    },
-            new DocVault.Domain.Entities.DocumentType { Name = "EventReport"         },
-            new DocVault.Domain.Entities.DocumentType { Name = "ResearchPaper"       },
-            new DocVault.Domain.Entities.DocumentType { Name = "AuditReport"         },
-            new DocVault.Domain.Entities.DocumentType { Name = "CircularReceived"    },
-            new DocVault.Domain.Entities.DocumentType { Name = "Other"               }
-        );
-        await db.SaveChangesAsync();
+        var existingTypes = await db.DocumentTypes.Select(t => t.Name).ToHashSetAsync();
+        var allTypes = new[]
+        {
+            "Syllabus", "LessonPlan", "AttendanceRegister", "MarksList",
+            "MinutesOfMeeting", "EventReport", "ResearchPaper", "AuditReport",
+            "CircularReceived", "GeotaggedPhoto", "Other"
+        };
+        foreach (var name in allTypes.Where(n => !existingTypes.Contains(n)))
+            db.DocumentTypes.Add(new DocVault.Domain.Entities.DocumentType { Name = name });
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
     }
 
     if (!await db.FinancialYears.AnyAsync())

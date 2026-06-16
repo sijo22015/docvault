@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../../app/store'
 import { useGetMyDocumentsQuery, useDeleteDocumentMutation, useRestoreDocumentMutation } from '../../../shared/api/documentsApi'
-import { Button, Badge, Card, Table, Th, Td, Tr, Pagination, Spinner, Alert, Modal } from '../../../shared/components/ui'
-import { UploadIcon, DownloadIcon, TrashIcon, RestoreIcon } from '../../../shared/components/Icons'
+import { useGetDocumentTypesQuery, useGetFinancialYearsQuery } from '../../../shared/api/referenceApi'
+import { Button, Badge, Card, Table, Th, Td, Tr, Pagination, Spinner, Alert, Modal, Input, Select } from '../../../shared/components/ui'
+import { UploadIcon, DownloadIcon, TrashIcon, RestoreIcon, SearchIcon, XIcon } from '../../../shared/components/Icons'
 
 const statusMeta: Record<string, { color: 'yellow' | 'green' | 'purple' | 'gray'; label: string }> = {
   DRAFT:     { color: 'yellow', label: 'Draft'     },
@@ -15,15 +16,46 @@ const statusMeta: Record<string, { color: 'yellow' | 'green' | 'purple' | 'gray'
 export default function UserDocuments() {
   const navigate = useNavigate()
   const { accessToken } = useSelector((s: RootState) => s.auth)
-  const [page, setPage]       = useState(1)
+
+  const [page, setPage]         = useState(1)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data, isLoading, error } = useGetMyDocumentsQuery({ page, pageSize: 20 })
-  const [deleteDoc]   = useDeleteDocumentMutation()
-  const [restoreDoc]  = useRestoreDocumentMutation()
+  const [searchInput, setSearchInput]         = useState('')
+  const [searchTerm,  setSearchTerm]          = useState('')
+  const [financialYearId, setFinancialYearId] = useState<number | undefined>()
+  const [documentTypeId,  setDocumentTypeId]  = useState<number | undefined>()
 
-  const documents = data?.data?.items ?? []
-  const total     = data?.data?.totalCount ?? 0
+  // Debounce title search
+  useEffect(() => {
+    const t = setTimeout(() => { setSearchTerm(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  const { data: typesRes } = useGetDocumentTypesQuery()
+  const { data: fysRes   } = useGetFinancialYearsQuery()
+  const docTypes       = typesRes?.data ?? []
+  const financialYears = fysRes?.data ?? []
+
+  const { data, isLoading, error } = useGetMyDocumentsQuery({
+    page, pageSize: 20,
+    searchTerm:      searchTerm      || undefined,
+    financialYearId: financialYearId || undefined,
+    documentTypeId:  documentTypeId  || undefined,
+  })
+  const [deleteDoc]  = useDeleteDocumentMutation()
+  const [restoreDoc] = useRestoreDocumentMutation()
+
+  const documents  = data?.data?.items ?? []
+  const total      = data?.data?.totalCount ?? 0
+  const hasFilters = !!searchInput || !!financialYearId || !!documentTypeId
+
+  const clearFilters = () => {
+    setSearchInput('')
+    setSearchTerm('')
+    setFinancialYearId(undefined)
+    setDocumentTypeId(undefined)
+    setPage(1)
+  }
 
   const handleDelete = async () => {
     if (deleteId) { await deleteDoc(deleteId); setDeleteId(null) }
@@ -50,14 +82,58 @@ export default function UserDocuments() {
         </Button>
       </div>
 
+      {/* Search / filter bar */}
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-48">
+            <Input
+              label="Search by title"
+              placeholder="Type to search…"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              icon={<SearchIcon className="w-4 h-4" />}
+            />
+          </div>
+          <div className="w-44">
+            <Select
+              label="Financial Year"
+              value={financialYearId ?? ''}
+              onChange={e => { setFinancialYearId(e.target.value ? Number(e.target.value) : undefined); setPage(1) }}
+              placeholder="All years"
+            >
+              {financialYears.map((f: any) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </Select>
+          </div>
+          <div className="w-44">
+            <Select
+              label="Document Type"
+              value={documentTypeId ?? ''}
+              onChange={e => { setDocumentTypeId(e.target.value ? Number(e.target.value) : undefined); setPage(1) }}
+              placeholder="All types"
+            >
+              {docTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+          </div>
+          {hasFilters && (
+            <Button size="sm" variant="ghost" icon={<XIcon className="w-3.5 h-3.5" />} onClick={clearFilters}>
+              Clear
+            </Button>
+          )}
+        </div>
+      </Card>
+
       {documents.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center">
             <UploadIcon className="w-8 h-8 text-sky-500" />
           </div>
-          <h3 className="font-semibold text-gray-900 mb-1">No documents yet</h3>
-          <p className="text-sm text-gray-500 mb-4">Upload your first document to get started</p>
-          <Button onClick={() => navigate('/documents/upload')}>Upload Document</Button>
+          <h3 className="font-semibold text-gray-900 mb-1">
+            {hasFilters ? 'No documents match your search' : 'No documents yet'}
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {hasFilters ? 'Try adjusting the filters above.' : 'Upload your first document to get started'}
+          </p>
+          {!hasFilters && <Button onClick={() => navigate('/documents/upload')}>Upload Document</Button>}
         </Card>
       ) : (
         <Card>

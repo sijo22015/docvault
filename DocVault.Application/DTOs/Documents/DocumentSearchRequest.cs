@@ -9,7 +9,9 @@ public record DocumentSearchRequest(
     DateTime? FromDate,
     DateTime? ToDate,
     string? SearchTerm,
+    string? UploaderName,
     bool IncludeDeleted = false,
+    bool OnlyDeleted = false,
     int Page = 1,
     int PageSize = 20
 );

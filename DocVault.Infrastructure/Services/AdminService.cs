@@ -137,7 +137,10 @@ public class AdminService : IAdminService
     public async Task<PagedResult<DocumentDto>> SearchDocumentsAsync(DocumentSearchRequest request, CancellationToken ct = default)
     {
         var query = _db.Documents.AsQueryable();
-        if (!request.IncludeDeleted) query = query.Where(d => !d.IsDeleted);
+        if (request.OnlyDeleted)
+            query = query.Where(d => d.IsDeleted);
+        else if (!request.IncludeDeleted)
+            query = query.Where(d => !d.IsDeleted);
         if (!string.IsNullOrEmpty(request.UserId)) query = query.Where(d => d.UserId.ToString() == request.UserId);
         if (request.DepartmentId.HasValue) query = query.Where(d => d.DepartmentId == request.DepartmentId);
         if (request.FinancialYearId.HasValue) query = query.Where(d => d.FinancialYearId == request.FinancialYearId);
@@ -147,6 +150,8 @@ public class AdminService : IAdminService
         if (request.ToDate.HasValue) query = query.Where(d => d.UploadedAt <= request.ToDate);
         if (!string.IsNullOrEmpty(request.SearchTerm))
             query = query.Where(d => d.Title.Contains(request.SearchTerm) || (d.Description != null && d.Description.Contains(request.SearchTerm)));
+        if (!string.IsNullOrEmpty(request.UploaderName))
+            query = query.Where(d => d.User != null && d.User.FullName.Contains(request.UploaderName));
 
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(d => d.UploadedAt)
@@ -186,6 +191,8 @@ public class AdminService : IAdminService
             if (!string.IsNullOrEmpty(request.Status))     query = query.Where(d => d.Status == request.Status);
             if (!string.IsNullOrEmpty(request.SearchTerm))
                 query = query.Where(d => d.Title.Contains(request.SearchTerm) || (d.Description != null && d.Description.Contains(request.SearchTerm)));
+            if (!string.IsNullOrEmpty(request.UploaderName))
+                query = query.Where(d => d.User != null && d.User.FullName.Contains(request.UploaderName));
         }
 
         var docs = await query
@@ -257,5 +264,33 @@ public class AdminService : IAdminService
             await mw.WriteAsync(manifest.ToString());
         }
         return ms.ToArray();
+    }
+
+    public async Task AdminRestoreDocumentAsync(Guid documentId, Guid adminId, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == documentId && d.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Document not found or not deleted.");
+        doc.IsDeleted = false;
+        // DeletedAt intentionally kept — signals "admin-restored, not visible to user"
+        await _db.SaveChangesAsync(ct);
+        await _storage.RestoreAsync(doc.FilePath, ct);
+        await _logger.LogAsync("RESTORE", "Document", doc.Id.ToString(), doc.Title, adminId, ct: ct);
+    }
+
+    public async Task<int> AdminPurgeDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
+    {
+        var docs = await _db.Documents
+            .Include(d => d.Versions)
+            .Where(d => d.IsDeleted)
+            .ToListAsync(ct);
+
+        foreach (var doc in docs)
+            try { await _storage.PurgeAsync(doc.FilePath, ct); } catch { /* ignore missing files */ }
+
+        _db.DocumentVersions.RemoveRange(docs.SelectMany(d => d.Versions));
+        _db.Documents.RemoveRange(docs);
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("PURGE_DELETED", "Document", null, $"Permanently deleted {docs.Count} document(s)", adminId, ct: ct);
+        return docs.Count;
     }
 }

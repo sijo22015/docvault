@@ -19,6 +19,9 @@ public class MergePdfRequest
     [JsonPropertyName("documentTypeId")]
     public int? DocumentTypeId { get; set; }
 
+    [JsonPropertyName("uploaderName")]
+    public string? UploaderName { get; set; }
+
     [JsonPropertyName("status")]
     public string? Status { get; set; }
 }

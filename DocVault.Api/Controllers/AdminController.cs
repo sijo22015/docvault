@@ -69,6 +69,20 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<PagedResult<DocumentDto>>.Ok(result, HttpContext.TraceIdentifier));
     }
 
+    [HttpDelete("documents/deleted")]
+    public async Task<ActionResult<ApiResponse<object>>> PurgeAllDeleted(CancellationToken ct)
+    {
+        var count = await _admin.AdminPurgeDeletedDocumentsAsync(CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = $"Permanently deleted {count} document(s).", count }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("documents/{id:guid}/restore")]
+    public async Task<ActionResult<ApiResponse<object>>> AdminRestoreDocument(Guid id, CancellationToken ct)
+    {
+        await _admin.AdminRestoreDocumentAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Document restored by admin." }, HttpContext.TraceIdentifier));
+    }
+
     [HttpGet("documents/{id:guid}/download")]
     public async Task<IActionResult> DownloadDocument(Guid id, CancellationToken ct)
     {

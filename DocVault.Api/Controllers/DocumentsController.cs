@@ -39,10 +39,12 @@ public class DocumentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<PagedResult<DocumentDto>>>> GetMine(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] int? fyId = null,
+        [FromQuery] int? financialYearId = null,
+        [FromQuery] int? documentTypeId = null,
+        [FromQuery] string? searchTerm = null,
         CancellationToken ct = default)
     {
-        var result = await _docs.GetUserDocumentsAsync(CurrentUserId, page, pageSize, fyId, ct);
+        var result = await _docs.GetUserDocumentsAsync(CurrentUserId, page, pageSize, financialYearId, documentTypeId, searchTerm, ct);
         return Ok(ApiResponse<PagedResult<DocumentDto>>.Ok(result, HttpContext.TraceIdentifier));
     }
 

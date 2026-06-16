@@ -13,7 +13,7 @@ export default function UserDashboard() {
     (fy: any) => fy.fyStart <= today && today <= fy.fyEnd
   ) ?? fysRes?.data?.[0]
   const { data: docs, isLoading } = useGetMyDocumentsQuery(
-    { fyId: currentFy?.id },
+    { financialYearId: currentFy?.id },
     { skip: !currentFy }
   )
 

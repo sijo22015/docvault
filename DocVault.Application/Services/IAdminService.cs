@@ -15,4 +15,6 @@ public interface IAdminService
     Task LockFinancialYearAsync(int fyId, Guid adminId, CancellationToken ct = default);
     Task<byte[]> ExportFinancialYearZipAsync(int fyId, CancellationToken ct = default);
     Task<(byte[] Data, string FileName)> MergeDocumentsToPdfAsync(MergePdfRequest request, CancellationToken ct = default);
+    Task AdminRestoreDocumentAsync(Guid documentId, Guid adminId, CancellationToken ct = default);
+    Task<int> AdminPurgeDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
 }

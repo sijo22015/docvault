@@ -11,6 +11,9 @@ public class AppUser : IdentityUser<Guid>
     public DateTime? LastLoginAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public string? RevokedBy { get; set; }
+    public string? MobileNumber { get; set; }
+    public string? WhatsAppNumber { get; set; }
+    public string? ProfilePhotoPath { get; set; }
 
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();

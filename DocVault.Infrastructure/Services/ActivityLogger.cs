@@ -20,7 +20,7 @@ public class ActivityLogger : IActivityLogger
             Details = details,
             UserId = userId,
             IpAddress = ipAddress,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow.Add(TimeSpan.FromHours(5.5)) // store as IST
         };
         _db.ActivityLogs.Add(log);
         await _db.SaveChangesAsync(ct);

@@ -13,12 +13,16 @@ namespace DocVault.Infrastructure.Services;
 
 public class DocumentService : IDocumentService
 {
-    private static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".txt"];
+    private static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".webp"];
     private static readonly Dictionary<string, byte[]> MagicBytes = new()
     {
-        { ".pdf", [0x25, 0x50, 0x44, 0x46] },
+        { ".pdf",  [0x25, 0x50, 0x44, 0x46] },
         { ".docx", [0x50, 0x4B, 0x03, 0x04] },
-        { ".doc", [0xD0, 0xCF, 0x11, 0xE0] },
+        { ".doc",  [0xD0, 0xCF, 0x11, 0xE0] },
+        { ".jpg",  [0xFF, 0xD8, 0xFF] },
+        { ".jpeg", [0xFF, 0xD8, 0xFF] },
+        { ".png",  [0x89, 0x50, 0x4E, 0x47] },
+        { ".webp", [0x52, 0x49, 0x46, 0x46] },
     };
 
     private readonly AppDbContext _db;
@@ -91,14 +95,20 @@ public class DocumentService : IDocumentService
         return await ToDto(doc, ct);
     }
 
-    public async Task<PagedResult<DocumentDto>> GetUserDocumentsAsync(Guid userId, int page, int pageSize, int? fyId, CancellationToken ct = default)
+    public async Task<PagedResult<DocumentDto>> GetUserDocumentsAsync(Guid userId, int page, int pageSize, int? financialYearId, int? documentTypeId, string? searchTerm, CancellationToken ct = default)
     {
         var query = _db.Documents
-            .Where(d => d.UserId == userId && !d.IsDeleted)
+            .Where(d => d.UserId == userId && !d.IsDeleted && d.DeletedAt == null)
             .AsQueryable();
 
-        if (fyId.HasValue)
-            query = query.Where(d => d.FinancialYearId == fyId.Value);
+        if (financialYearId.HasValue)
+            query = query.Where(d => d.FinancialYearId == financialYearId.Value);
+
+        if (documentTypeId.HasValue)
+            query = query.Where(d => d.DocumentTypeId == documentTypeId.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            query = query.Where(d => d.Title.Contains(searchTerm) || (d.Description != null && d.Description.Contains(searchTerm)));
 
         var total = await query.CountAsync(ct);
         var items = await query

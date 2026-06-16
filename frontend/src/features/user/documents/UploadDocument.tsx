@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import { useUploadDocumentMutation } from '../../../shared/api/documentsApi'
@@ -14,13 +14,21 @@ export default function UploadDocument() {
   const [upload, { isLoading }] = useUploadDocumentMutation()
 
   const [form, setForm] = useState({ title: '', description: '', departmentId: '', financialYearId: '', documentTypeId: '' })
-  const [file, setFile]       = useState<File | null>(null)
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState(false)
+  const [file, setFile]           = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [error, setError]         = useState('')
+  const [success, setSuccess]     = useState(false)
 
   const departments    = deptsRes?.data ?? []
   const docTypes       = typesRes?.data ?? []
   const financialYears = fysRes?.data ?? []
+
+  useEffect(() => {
+    if (!file || !file.type.startsWith('image/')) { setPreviewUrl(null); return }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
 
   const onDrop = useCallback((accepted: File[]) => { if (accepted[0]) setFile(accepted[0]) }, [])
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -30,6 +38,9 @@ export default function UploadDocument() {
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'text/plain': ['.txt'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
     },
     maxSize: 25 * 1024 * 1024,
     multiple: false,
@@ -75,9 +86,14 @@ export default function UploadDocument() {
         <input {...getInputProps()} />
         {file ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-              <FileIcon className="w-7 h-7 text-white" />
-            </div>
+            {previewUrl ? (
+              <img src={previewUrl} alt="Preview"
+                className="w-28 h-28 rounded-2xl object-cover shadow-md shadow-emerald-100 border-2 border-emerald-200" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                <FileIcon className="w-7 h-7 text-white" />
+              </div>
+            )}
             <p className="font-semibold text-gray-900">{file.name}</p>
             <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
             <button onClick={e => { e.stopPropagation(); setFile(null) }}
@@ -96,7 +112,7 @@ export default function UploadDocument() {
               <p className="font-semibold text-gray-700">
                 {isDragActive ? 'Drop it here!' : 'Drag & drop or click to select'}
               </p>
-              <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, TXT · Max 25 MB</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, TXT, JPG, PNG, WebP · Max 25 MB</p>
             </div>
           </div>
         )}

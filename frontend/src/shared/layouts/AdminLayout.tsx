@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import type { RootState } from '../../app/store'
 import { clearCredentials } from '../../features/auth/authSlice'
 import { useLogoutMutation } from '../../features/auth/authApi'
+import { useGetMyProfileQuery } from '../api/profileApi'
 import { DashboardIcon, UsersIcon, FolderIcon, ChartIcon, ClockIcon, LogoutIcon, ShieldIcon } from '../components/Icons'
 
 const navItems = [
@@ -18,6 +19,10 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const { fullName, email, refreshToken } = useSelector((s: RootState) => s.auth)
   const [logout] = useLogoutMutation()
+  const { data: profileRes } = useGetMyProfileQuery(undefined, { refetchOnMountOrArgChange: true })
+
+  const photoUrl = profileRes?.data?.profilePhotoUrl
+  const initials = (fullName ?? 'AD').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
   const handleLogout = async () => {
     if (refreshToken) { try { await logout({ refreshToken }) } catch { /* ignore */ } }
@@ -25,7 +30,16 @@ export default function AdminLayout() {
     navigate('/login')
   }
 
-  const initials = (fullName ?? 'AD').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const Avatar = ({ size }: { size: 'sm' | 'md' }) => {
+    const cls = size === 'sm' ? 'w-8 h-8 rounded-lg text-xs' : 'w-8 h-8 rounded-xl text-xs'
+    return photoUrl ? (
+      <img src={photoUrl} alt="Profile" className={`${cls} object-cover flex-shrink-0`} />
+    ) : (
+      <div className={`${cls} bg-gradient-to-br from-violet-500 to-pink-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
+        {initials}
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -73,9 +87,7 @@ export default function AdminLayout() {
         {/* Footer */}
         <div className="p-3 border-t border-white/5">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              {initials}
-            </div>
+            <Avatar size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white/90 truncate">{fullName}</p>
               <p className="text-xs text-gray-500 truncate">{email}</p>
@@ -95,9 +107,7 @@ export default function AdminLayout() {
             <h1 className="font-bold text-gray-900">Admin Panel</h1>
             <p className="text-xs text-gray-400 mt-0.5">Manage documents, users and analytics</p>
           </div>
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white">
-            {initials}
-          </div>
+          <Avatar size="md" />
         </header>
         <main className="flex-1 p-6 overflow-auto">
           <Outlet />

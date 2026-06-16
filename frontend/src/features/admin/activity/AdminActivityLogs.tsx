@@ -14,6 +14,18 @@ const activityApi = apiSlice.injectEndpoints({
 })
 const { useGetActivityLogsQuery } = activityApi
 
+// Server stores IST directly — parse the raw string without any browser
+// timezone involvement so the displayed time always matches what was stored.
+function formatTime(raw: string): string {
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/)
+  if (!m) return raw
+  const [, Y, Mo, D, hStr, mi, s] = m
+  let h = parseInt(hStr, 10)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${parseInt(Mo, 10)}/${parseInt(D, 10)}/${Y} ${h}:${mi}:${s} ${ap}`
+}
+
 const actionColor: Record<string, 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'orange' | 'gray'> = {
   LOGIN: 'blue', UPLOAD: 'green', DELETE: 'red', APPROVE_USER: 'green',
   REVOKE_USER: 'red', SUBMIT: 'purple', RESTORE: 'yellow', LOGOUT: 'orange',
@@ -88,7 +100,7 @@ export default function AdminActivityLogs() {
                       : <span className="text-gray-400">—</span>
                     }
                   </Td>
-                  <Td className="text-gray-500 text-xs whitespace-nowrap">{new Date(l.createdAt).toLocaleString()}</Td>
+                  <Td className="text-gray-500 text-xs whitespace-nowrap">{formatTime(l.createdAt)}</Td>
                 </Tr>
               ))}
               {logs.length === 0 && (

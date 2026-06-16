@@ -46,5 +46,13 @@ public class LocalDiskFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task PurgeAsync(string filePath, CancellationToken ct = default)
+    {
+        var deletedPath = filePath + ".deleted";
+        if (File.Exists(deletedPath)) File.Delete(deletedPath);
+        if (File.Exists(filePath))    File.Delete(filePath);
+        return Task.CompletedTask;
+    }
+
     public bool Exists(string filePath) => File.Exists(filePath);
 }

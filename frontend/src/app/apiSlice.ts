@@ -69,6 +69,6 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Document', 'User', 'Notification'],
+  tagTypes: ['Document', 'User', 'Notification', 'Profile'],
   endpoints: () => ({}),
 })

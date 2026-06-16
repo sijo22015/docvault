@@ -9,5 +9,8 @@ public record UserDto(
     DateTime CreatedAt,
     DateTime? LastLoginAt,
     DateTime? RevokedAt,
-    IList<string> Roles
+    IList<string> Roles,
+    string? MobileNumber = null,
+    string? WhatsAppNumber = null,
+    string? ProfilePhotoUrl = null
 );

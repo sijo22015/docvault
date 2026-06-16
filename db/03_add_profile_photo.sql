@@ -1,0 +1,1 @@
+ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "ProfilePhotoPath" TEXT;
