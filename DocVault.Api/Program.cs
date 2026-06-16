@@ -138,7 +138,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseRateLimiter();
