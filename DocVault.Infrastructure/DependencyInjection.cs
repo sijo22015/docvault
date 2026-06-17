@@ -19,7 +19,8 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogger, ActivityLogger>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddMemoryCache();
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddHttpClient<ResendEmailSender>();
+        services.AddScoped<IEmailSender, ResendEmailSender>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IAdminService, AdminService>();
