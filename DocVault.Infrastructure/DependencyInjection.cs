@@ -15,7 +15,17 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(opts =>
             opts.UseNpgsql(config.GetConnectionString("DefaultConnection")));
 
-        services.AddScoped<IFileStorage, LocalDiskFileStorage>();
+        var storageProvider = config["Storage:Provider"] ?? "LocalDisk";
+        if (storageProvider.Equals("Supabase", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<SupabaseFileStorage>();
+            services.AddScoped<IFileStorage, SupabaseFileStorage>();
+        }
+        else
+        {
+            services.AddScoped<IFileStorage, LocalDiskFileStorage>();
+        }
+
         services.AddScoped<IActivityLogger, ActivityLogger>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddMemoryCache();
