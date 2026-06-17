@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using DocVault.Application.DTOs.Admin;
+using DocVault.Application.DTOs.Auth;
 using DocVault.Application.DTOs.Common;
 using DocVault.Domain.Entities;
 using DocVault.Domain.Interfaces;
@@ -94,6 +95,22 @@ public class MeController : ControllerBase
         await _userManager.UpdateAsync(user);
 
         return Ok(ApiResponse<object>.Ok(new { message = "Profile photo updated.", photoUrl = $"/api/v1/me/photo/{CurrentUserId}" }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("change-password")]
+    public async Task<ActionResult<ApiResponse<object>>> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(CurrentUserId.ToString());
+        if (user == null) return NotFound();
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+            return BadRequest(new { error = errors });
+        }
+
+        return Ok(ApiResponse<object>.Ok(new { message = "Password changed successfully." }, HttpContext.TraceIdentifier));
     }
 
     [HttpGet("photo/{userId:guid}")]
