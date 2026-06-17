@@ -149,10 +149,16 @@ public class AdminService : IAdminService
         if (request.FromDate.HasValue) query = query.Where(d => d.UploadedAt >= request.FromDate);
         if (request.ToDate.HasValue) query = query.Where(d => d.UploadedAt <= request.ToDate);
         if (!string.IsNullOrEmpty(request.SearchTerm))
-            query = query.Where(d => EF.Functions.ILike(d.Title, $"%{request.SearchTerm}%") ||
-                                     (d.Description != null && EF.Functions.ILike(d.Description, $"%{request.SearchTerm}%")));
+        {
+            var term = request.SearchTerm.ToLower();
+            query = query.Where(d => d.Title.ToLower().Contains(term) ||
+                                     (d.Description != null && d.Description.ToLower().Contains(term)));
+        }
         if (!string.IsNullOrEmpty(request.UploaderName))
-            query = query.Where(d => d.User != null && EF.Functions.ILike(d.User.FullName, $"%{request.UploaderName}%"));
+        {
+            var uploaderTerm = request.UploaderName.ToLower();
+            query = query.Where(d => d.User != null && d.User.FullName.ToLower().Contains(uploaderTerm));
+        }
 
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(d => d.UploadedAt)
