@@ -1,8 +1,9 @@
-using System.Net;
-using System.Net.Mail;
 using DocVault.Domain.Interfaces;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using MimeKit;
 
 namespace DocVault.Infrastructure.Services;
 
@@ -28,27 +29,22 @@ public class SmtpEmailSender : IEmailSender
 
         if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
         {
-            _logger.LogWarning("[EMAIL] SMTP not configured. To: {To} | Subject: {Subject}", to, subject);
+            _logger.LogWarning("[EMAIL] SMTP not configured — skipping. To: {To} | Subject: {Subject}", to, subject);
             return;
         }
 
-        using var client = new SmtpClient(host, port)
-        {
-            Credentials = new NetworkCredential(user, pass),
-            EnableSsl = true,
-            DeliveryMethod = SmtpDeliveryMethod.Network
-        };
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(fromName, from));
+        message.To.Add(MailboxAddress.Parse(to));
+        message.Subject = subject;
+        message.Body = new TextPart(MimeKit.Text.TextFormat.Html) { Text = body };
 
-        using var message = new MailMessage
-        {
-            From = new MailAddress(from!, fromName),
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true
-        };
-        message.To.Add(to);
+        using var client = new SmtpClient();
+        await client.ConnectAsync(host, port, SecureSocketOptions.StartTls, ct);
+        await client.AuthenticateAsync(user, pass, ct);
+        await client.SendAsync(message, ct);
+        await client.DisconnectAsync(true, ct);
 
-        await client.SendMailAsync(message, ct);
         _logger.LogInformation("[EMAIL] Sent to {To} | Subject: {Subject}", to, subject);
     }
 }
