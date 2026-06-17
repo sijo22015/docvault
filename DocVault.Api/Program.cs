@@ -1,3 +1,5 @@
+using DocVault.Infrastructure.Services;
+using PdfSharpCore.Fonts;
 using DocVault.Api.Extensions;
 using DocVault.Api.Middleware;
 using DocVault.Application.Validators;
@@ -19,6 +21,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+GlobalFontSettings.FontResolver = new LinuxFontResolver();
 
 var builder = WebApplication.CreateBuilder(args);
 
