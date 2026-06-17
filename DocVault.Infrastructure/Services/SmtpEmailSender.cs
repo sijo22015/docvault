@@ -28,10 +28,7 @@ public class SmtpEmailSender : IEmailSender
         var fromName = _config["Email:FromName"] ?? "DocVault";
 
         if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
-        {
-            _logger.LogWarning("[EMAIL] SMTP not configured — skipping. To: {To} | Subject: {Subject}", to, subject);
-            return;
-        }
+            throw new InvalidOperationException("Email service is not configured on the server. Please contact the administrator.");
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(fromName, from));
@@ -39,12 +36,23 @@ public class SmtpEmailSender : IEmailSender
         message.Subject = subject;
         message.Body = new TextPart(MimeKit.Text.TextFormat.Html) { Text = body };
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(host, port, SecureSocketOptions.StartTls, ct);
-        await client.AuthenticateAsync(user, pass, ct);
-        await client.SendAsync(message, ct);
-        await client.DisconnectAsync(true, ct);
-
-        _logger.LogInformation("[EMAIL] Sent to {To} | Subject: {Subject}", to, subject);
+        try
+        {
+            using var client = new SmtpClient();
+            await client.ConnectAsync(host, port, SecureSocketOptions.StartTls, ct);
+            await client.AuthenticateAsync(user, pass, ct);
+            await client.SendAsync(message, ct);
+            await client.DisconnectAsync(true, ct);
+            _logger.LogInformation("[EMAIL] Sent to {To} | Subject: {Subject}", to, subject);
+        }
+        catch (AuthenticationException)
+        {
+            throw new InvalidOperationException("Email authentication failed. Check the SMTP username and App Password in server settings.");
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            _logger.LogError(ex, "[EMAIL] Failed to send to {To}", to);
+            throw new InvalidOperationException("Failed to send email. Please try again later.");
+        }
     }
 }
