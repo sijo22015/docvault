@@ -108,7 +108,8 @@ public class DocumentService : IDocumentService
             query = query.Where(d => d.DocumentTypeId == documentTypeId.Value);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
-            query = query.Where(d => d.Title.Contains(searchTerm) || (d.Description != null && d.Description.Contains(searchTerm)));
+            query = query.Where(d => EF.Functions.ILike(d.Title, $"%{searchTerm}%") ||
+                                     (d.Description != null && EF.Functions.ILike(d.Description, $"%{searchTerm}%")));
 
         var total = await query.CountAsync(ct);
         var items = await query
