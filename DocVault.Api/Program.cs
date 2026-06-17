@@ -181,9 +181,6 @@ using (var scope = app.Services.CreateScope())
         await userManager.UpdateAsync(existingAdmin);
         if (!await userManager.IsInRoleAsync(existingAdmin, "Admin"))
             await userManager.AddToRoleAsync(existingAdmin, "Admin");
-        // Reset password to configured value
-        var token = await userManager.GeneratePasswordResetTokenAsync(existingAdmin);
-        await userManager.ResetPasswordAsync(existingAdmin, token, adminPassword);
     }
 
     // Seed reference data (runs only when tables are empty)
