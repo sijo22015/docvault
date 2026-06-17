@@ -4,6 +4,8 @@ namespace DocVault.Infrastructure.Services;
 
 public class LinuxFontResolver : IFontResolver
 {
+    public string DefaultFontName => "LiberationSans-Regular";
+
     private static readonly string[] SearchPaths =
     [
         "/usr/share/fonts/truetype/liberation",
