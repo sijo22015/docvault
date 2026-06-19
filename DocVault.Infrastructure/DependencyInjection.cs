@@ -3,6 +3,7 @@ using DocVault.Domain.Interfaces;
 using DocVault.Infrastructure.Data;
 using DocVault.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,7 +14,8 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<AppDbContext>(opts =>
-            opts.UseNpgsql(config.GetConnectionString("DefaultConnection")));
+            opts.UseNpgsql(config.GetConnectionString("DefaultConnection"))
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
         var storageProvider = config["Storage:Provider"] ?? "LocalDisk";
         if (storageProvider.Equals("Supabase", StringComparison.OrdinalIgnoreCase))
