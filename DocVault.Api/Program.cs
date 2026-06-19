@@ -150,11 +150,12 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Apply pending migrations automatically on startup
+// Add new columns that don't exist yet (idempotent — safe on every startup)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE \"AspNetUsers\" ADD COLUMN IF NOT EXISTS \"CommunicationAddress\" character varying(500)");
 }
 
 // Seed admin user and reference data on first run
