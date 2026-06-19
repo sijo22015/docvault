@@ -118,6 +118,11 @@ namespace DocVault.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CommunicationAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("CommunicationAddress");
+
                     b.Property<string>("MobileNumber")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")

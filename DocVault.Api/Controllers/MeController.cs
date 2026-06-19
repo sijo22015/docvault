@@ -44,7 +44,7 @@ public class MeController : ControllerBase
             ? $"/api/v1/me/photo/{user.Id}"
             : null;
         return Ok(ApiResponse<UserDto>.Ok(
-            new UserDto(user.Id, user.FullName, user.Email!, user.Department, user.UserStatus, user.CreatedAt, user.LastLoginAt, user.RevokedAt, roles, user.MobileNumber, user.WhatsAppNumber, photoUrl),
+            new UserDto(user.Id, user.FullName, user.Email!, user.Department, user.UserStatus, user.CreatedAt, user.LastLoginAt, user.RevokedAt, roles, user.MobileNumber, user.WhatsAppNumber, user.CommunicationAddress, photoUrl),
             HttpContext.TraceIdentifier));
     }
 
@@ -56,6 +56,7 @@ public class MeController : ControllerBase
         user.FullName = request.FullName ?? user.FullName;
         user.MobileNumber = request.MobileNumber ?? user.MobileNumber;
         user.WhatsAppNumber = request.WhatsAppNumber ?? user.WhatsAppNumber;
+        user.CommunicationAddress = request.CommunicationAddress ?? user.CommunicationAddress;
         await _userManager.UpdateAsync(user);
         return Ok(ApiResponse<object>.Ok(new { message = "Profile updated." }, HttpContext.TraceIdentifier));
     }
@@ -133,4 +134,4 @@ public class MeController : ControllerBase
     }
 }
 
-public record UpdateProfileRequest(string? FullName, string? MobileNumber, string? WhatsAppNumber);
+public record UpdateProfileRequest(string? FullName, string? MobileNumber, string? WhatsAppNumber, string? CommunicationAddress);

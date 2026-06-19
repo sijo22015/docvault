@@ -12,5 +12,6 @@ public record UserDto(
     IList<string> Roles,
     string? MobileNumber = null,
     string? WhatsAppNumber = null,
+    string? CommunicationAddress = null,
     string? ProfilePhotoUrl = null
 );

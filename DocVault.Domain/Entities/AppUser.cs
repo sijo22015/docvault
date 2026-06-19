@@ -13,6 +13,7 @@ public class AppUser : IdentityUser<Guid>
     public string? RevokedBy { get; set; }
     public string? MobileNumber { get; set; }
     public string? WhatsAppNumber { get; set; }
+    public string? CommunicationAddress { get; set; }
     public string? ProfilePhotoPath { get; set; }
 
     public ICollection<Document> Documents { get; set; } = new List<Document>();
