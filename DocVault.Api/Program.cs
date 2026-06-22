@@ -127,6 +127,9 @@ builder.Services.AddRateLimiter(opts =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
+// HttpClient (used by ChatController to proxy Groq)
+builder.Services.AddHttpClient();
+
 // Controllers + OpenAPI
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
