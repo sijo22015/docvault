@@ -3,6 +3,7 @@ using DocVault.Application.DTOs.Admin;
 using DocVault.Application.DTOs.Common;
 using DocVault.Application.DTOs.Documents;
 using DocVault.Application.Services;
+using DocVault.Domain.Interfaces;
 using DocVault.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +19,8 @@ public class AdminController : ControllerBase
     private readonly IAdminService _admin;
     private readonly IDocumentService _docs;
     private readonly AppDbContext _db;
-    public AdminController(IAdminService admin, IDocumentService docs, AppDbContext db) { _admin = admin; _docs = docs; _db = db; }
+    private readonly IActivityLogger _logger;
+    public AdminController(IAdminService admin, IDocumentService docs, AppDbContext db, IActivityLogger logger) { _admin = admin; _docs = docs; _db = db; _logger = logger; }
 
     private Guid CurrentUserId =>
         Guid.TryParse(User.FindFirstValue("sub"), out var id)
