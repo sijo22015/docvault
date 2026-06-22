@@ -14,15 +14,30 @@ namespace DocVault.Infrastructure.Services;
 public class DocumentService : IDocumentService
 {
     private static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".webp"];
+
+    // Server-side MIME map — never trust the browser-supplied Content-Type
+    private static readonly Dictionary<string, string> KnownMimeTypes = new()
+    {
+        { ".pdf",  "application/pdf" },
+        { ".doc",  "application/msword" },
+        { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+        { ".txt",  "text/plain" },
+        { ".jpg",  "image/jpeg" },
+        { ".jpeg", "image/jpeg" },
+        { ".png",  "image/png" },
+        { ".webp", "image/webp" },
+    };
+
     private static readonly Dictionary<string, byte[]> MagicBytes = new()
     {
-        { ".pdf",  [0x25, 0x50, 0x44, 0x46] },
-        { ".docx", [0x50, 0x4B, 0x03, 0x04] },
-        { ".doc",  [0xD0, 0xCF, 0x11, 0xE0] },
-        { ".jpg",  [0xFF, 0xD8, 0xFF] },
+        { ".pdf",  [0x25, 0x50, 0x44, 0x46] },          // %PDF
+        { ".docx", [0x50, 0x4B, 0x03, 0x04] },          // PK (ZIP)
+        { ".doc",  [0xD0, 0xCF, 0x11, 0xE0] },          // OLE compound doc
+        { ".jpg",  [0xFF, 0xD8, 0xFF] },                 // JPEG SOI
         { ".jpeg", [0xFF, 0xD8, 0xFF] },
-        { ".png",  [0x89, 0x50, 0x4E, 0x47] },
-        { ".webp", [0x52, 0x49, 0x46, 0x46] },
+        { ".png",  [0x89, 0x50, 0x4E, 0x47] },          // PNG signature
+        // .webp handled separately: RIFF (0-3) + WEBP (8-11)
+        // .txt has no magic bytes — no entry means it passes through
     };
 
     private readonly AppDbContext _db;
@@ -53,7 +68,10 @@ public class DocumentService : IDocumentService
 
         ms.Position = 0;
         if (!ValidateMagicBytes(ms, ext))
-            throw new InvalidOperationException("File content does not match its declared type.");
+            throw new InvalidOperationException("File content does not match its declared extension. Upload rejected.");
+
+        // Derive MIME type server-side — ignore whatever the browser sent
+        var safeContentType = KnownMimeTypes.GetValueOrDefault(ext, "application/octet-stream");
 
         ms.Position = 0;
         var hash = await ComputeSha256Async(ms, ct);
@@ -75,7 +93,7 @@ public class DocumentService : IDocumentService
             OriginalFileName = Path.GetFileName(originalFileName),
             StoredFileName = storedName,
             FilePath = fullPath,
-            ContentType = contentType,
+            ContentType = safeContentType,
             FileSizeBytes = ms.Length,
             Sha256Hash = hash,
             Status = "SUBMITTED",
@@ -202,10 +220,20 @@ public class DocumentService : IDocumentService
 
     private static bool ValidateMagicBytes(Stream stream, string ext)
     {
-        if (!MagicBytes.TryGetValue(ext, out var magic)) return true;
-        var header = new byte[magic.Length];
-        stream.ReadExactly(header, 0, header.Length);
-        return header.SequenceEqual(magic);
+        // WebP: bytes 0-3 must be "RIFF" and bytes 8-11 must be "WEBP"
+        // A plain RIFF check would let WAV/AVI files pass — check both markers
+        if (ext == ".webp")
+        {
+            var header = new byte[12];
+            if (stream.Read(header, 0, 12) < 12) return false;
+            return header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46  // RIFF
+                && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50; // WEBP
+        }
+
+        if (!MagicBytes.TryGetValue(ext, out var magic)) return true; // .txt — no magic bytes
+        var buf = new byte[magic.Length];
+        stream.ReadExactly(buf, 0, buf.Length);
+        return buf.SequenceEqual(magic);
     }
 
     private static async Task<string> ComputeSha256Async(Stream stream, CancellationToken ct)
