@@ -11,7 +11,41 @@ namespace DocVault.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
-    public AuthController(IAuthService auth) => _auth = auth;
+    private readonly IWebHostEnvironment _env;
+
+    public AuthController(IAuthService auth, IWebHostEnvironment env)
+    {
+        _auth = auth;
+        _env = env;
+    }
+
+    private void SetAuthCookies(string accessToken, string refreshToken, DateTime accessExpiry)
+    {
+        var isDev = _env.IsDevelopment();
+        Response.Cookies.Append("access_token", accessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = !isDev,
+            SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.None,
+            Expires  = new DateTimeOffset(accessExpiry),
+            Path     = "/"
+        });
+        Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = !isDev,
+            SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.None,
+            Expires  = DateTimeOffset.UtcNow.AddDays(7),
+            Path     = "/api/v1/auth"
+        });
+    }
+
+    private void ClearAuthCookies()
+    {
+        var isDev = _env.IsDevelopment();
+        Response.Cookies.Delete("access_token",  new CookieOptions { Secure = !isDev, SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.None, Path = "/" });
+        Response.Cookies.Delete("refresh_token", new CookieOptions { Secure = !isDev, SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.None, Path = "/api/v1/auth" });
+    }
 
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<object>>> Register([FromBody] RegisterRequest request, CancellationToken ct)
@@ -21,24 +55,37 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<AuthResponse>>> Login([FromBody] LoginRequest request, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<UserSessionDto>>> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await _auth.LoginAsync(request, ct);
-        return Ok(ApiResponse<AuthResponse>.Ok(result, HttpContext.TraceIdentifier));
+        SetAuthCookies(result.AccessToken, result.RefreshToken, result.ExpiresAt);
+        return Ok(ApiResponse<UserSessionDto>.Ok(
+            new UserSessionDto(result.UserId, result.Email, result.FullName, result.Role),
+            HttpContext.TraceIdentifier));
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<ApiResponse<AuthResponse>>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<UserSessionDto>>> Refresh(CancellationToken ct)
     {
-        var result = await _auth.RefreshAsync(request.RefreshToken, ct);
-        return Ok(ApiResponse<AuthResponse>.Ok(result, HttpContext.TraceIdentifier));
+        var refreshToken = Request.Cookies["refresh_token"];
+        if (string.IsNullOrEmpty(refreshToken))
+            return Unauthorized(new { error = "No refresh token." });
+
+        var result = await _auth.RefreshAsync(refreshToken, ct);
+        SetAuthCookies(result.AccessToken, result.RefreshToken, result.ExpiresAt);
+        return Ok(ApiResponse<UserSessionDto>.Ok(
+            new UserSessionDto(result.UserId, result.Email, result.FullName, result.Role),
+            HttpContext.TraceIdentifier));
     }
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<object>>> Logout([FromBody] RefreshRequest request, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<object>>> Logout(CancellationToken ct)
     {
-        await _auth.LogoutAsync(request.RefreshToken, ct);
+        var refreshToken = Request.Cookies["refresh_token"];
+        if (!string.IsNullOrEmpty(refreshToken))
+            try { await _auth.LogoutAsync(refreshToken, ct); } catch { /* best-effort revoke */ }
+        ClearAuthCookies();
         return Ok(ApiResponse<object>.Ok(new { message = "Logged out." }, HttpContext.TraceIdentifier));
     }
 

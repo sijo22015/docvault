@@ -79,6 +79,15 @@ builder.Services.AddAuthentication(opts =>
         RoleClaimType = "role",
         NameClaimType = "sub"
     };
+    opts.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnMessageReceived = ctx =>
+        {
+            if (ctx.Request.Cookies.TryGetValue("access_token", out var token) && !string.IsNullOrEmpty(token))
+                ctx.Token = token;
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // CORS
