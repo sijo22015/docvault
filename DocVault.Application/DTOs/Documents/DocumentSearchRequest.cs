@@ -12,6 +12,7 @@ public record DocumentSearchRequest(
     string? UploaderName,
     bool IncludeDeleted = false,
     bool OnlyDeleted = false,
+    bool? OnlyDeletedByAdmin = null,
     int Page = 1,
     int PageSize = 20
 );

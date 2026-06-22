@@ -15,6 +15,7 @@ public class Document
     public string[]? Tags { get; set; }
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
+    public bool DeletedByAdmin { get; set; } = false;
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     public DateTime? SubmittedAt { get; set; }
 

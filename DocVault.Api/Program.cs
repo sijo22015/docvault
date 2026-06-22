@@ -168,6 +168,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE \"AspNetUsers\" ADD COLUMN IF NOT EXISTS \"CommunicationAddress\" character varying(500)");
+    await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE \"Documents\" ADD COLUMN IF NOT EXISTS \"DeletedByAdmin\" boolean NOT NULL DEFAULT false");
 }
 
 // Seed admin user and reference data on first run

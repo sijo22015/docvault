@@ -16,5 +16,6 @@ public record DocumentDto(
     string UploaderName,
     string DepartmentName,
     string FinancialYearLabel,
-    string DocumentTypeName
+    string DocumentTypeName,
+    bool DeletedByAdmin = false
 );
