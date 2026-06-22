@@ -153,6 +153,8 @@ public class AdminController : ControllerBase
     public async Task<ActionResult<ApiResponse<PagedResult<object>>>> GetActivityLogs(
         [FromQuery] string? action,
         [FromQuery] string? userId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
@@ -160,6 +162,8 @@ public class AdminController : ControllerBase
         var query = _db.ActivityLogs.AsQueryable();
         if (!string.IsNullOrEmpty(action)) query = query.Where(l => l.Action == action.ToUpperInvariant());
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var uid)) query = query.Where(l => l.UserId == uid);
+        if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
+        if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
 
         var total = await query.CountAsync(ct);
         var items = await query
@@ -181,5 +185,34 @@ public class AdminController : ControllerBase
             .ToListAsync(ct);
 
         return Ok(ApiResponse<PagedResult<object>>.Ok(new PagedResult<object>(items, total, page, pageSize), HttpContext.TraceIdentifier));
+    }
+
+    [HttpDelete("activity-logs")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteActivityLogs(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken ct)
+    {
+        var query = _db.ActivityLogs.AsQueryable();
+        if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
+        if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
+
+        int count = await query.ExecuteDeleteAsync(ct);
+        var detail = (from.HasValue || to.HasValue)
+            ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
+            : $"Deleted all {count} activity log(s)";
+        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null, detail, CurrentUserId, ct: ct);
+        return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpDelete("activity-logs/selected")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteSelectedActivityLogs(
+        [FromBody] long[] ids,
+        CancellationToken ct)
+    {
+        int count = await _db.ActivityLogs.Where(l => ids.Contains(l.Id)).ExecuteDeleteAsync(ct);
+        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
+            $"Deleted {count} selected activity log(s)", CurrentUserId, ct: ct);
+        return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
     }
 }
