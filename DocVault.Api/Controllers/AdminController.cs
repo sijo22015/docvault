@@ -69,6 +69,13 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<PagedResult<DocumentDto>>.Ok(result, HttpContext.TraceIdentifier));
     }
 
+    [HttpDelete("documents/{id:guid}/hard")]
+    public async Task<ActionResult<ApiResponse<object>>> AdminHardDeleteDocument(Guid id, CancellationToken ct)
+    {
+        await _admin.AdminHardDeleteDocumentAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Document permanently deleted." }, HttpContext.TraceIdentifier));
+    }
+
     [HttpDelete("documents/{id:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> AdminSoftDeleteDocument(Guid id, CancellationToken ct)
     {

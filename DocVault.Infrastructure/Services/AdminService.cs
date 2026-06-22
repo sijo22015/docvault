@@ -299,6 +299,20 @@ public class AdminService : IAdminService
         await _logger.LogAsync("ADMIN_DELETE", "Document", doc.Id.ToString(), doc.Title, adminId, ct: ct);
     }
 
+    public async Task AdminHardDeleteDocumentAsync(Guid documentId, Guid adminId, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents
+            .Include(d => d.Versions)
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Document not found or not in a deleted state.");
+
+        try { await _storage.PurgeAsync(doc.FilePath, ct); } catch { /* ignore missing files */ }
+        _db.DocumentVersions.RemoveRange(doc.Versions);
+        _db.Documents.Remove(doc);
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("HARD_DELETE", "Document", doc.Id.ToString(), doc.Title, adminId, ct: ct);
+    }
+
     public async Task<int> AdminPurgeDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
     {
         var docs = await _db.Documents
