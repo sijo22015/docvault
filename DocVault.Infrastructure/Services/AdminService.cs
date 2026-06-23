@@ -330,6 +330,42 @@ public class AdminService : IAdminService
         return docs.Count;
     }
 
+    public async Task<int> DeleteActivityLogsAsync(DateTime? from, DateTime? to, Guid adminId, CancellationToken ct = default)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync(ct);
+
+        int count;
+        if (!from.HasValue && !to.HasValue)
+        {
+            count = await conn.ExecuteAsync("DELETE FROM activity_logs");
+        }
+        else
+        {
+            var conditions = new List<string>();
+            var p = new DynamicParameters();
+            if (from.HasValue) { conditions.Add("created_at >= @from"); p.Add("from", from.Value.Date); }
+            if (to.HasValue)   { conditions.Add("created_at < @to");   p.Add("to",   to.Value.Date.AddDays(1)); }
+            count = await conn.ExecuteAsync($"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}", p);
+        }
+
+        var detail = (from.HasValue || to.HasValue)
+            ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
+            : $"Deleted all {count} activity log(s)";
+        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null, detail, adminId, ct: ct);
+        return count;
+    }
+
+    public async Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync(ct);
+        int count = await conn.ExecuteAsync("DELETE FROM activity_logs WHERE id = ANY(@ids)", new { ids });
+        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
+            $"Deleted {count} selected activity log(s)", adminId, ct: ct);
+        return count;
+    }
+
     public async Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
     {
         var docs = await _db.Documents

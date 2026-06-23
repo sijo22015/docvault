@@ -20,4 +20,6 @@ public interface IAdminService
     Task AdminHardDeleteDocumentAsync(Guid documentId, Guid adminId, CancellationToken ct = default);
     Task<int> AdminPurgeDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
     Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
+    Task<int> DeleteActivityLogsAsync(DateTime? from, DateTime? to, Guid adminId, CancellationToken ct = default);
+    Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default);
 }

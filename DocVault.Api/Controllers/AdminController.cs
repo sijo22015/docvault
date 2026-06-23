@@ -3,7 +3,6 @@ using DocVault.Application.DTOs.Admin;
 using DocVault.Application.DTOs.Common;
 using DocVault.Application.DTOs.Documents;
 using DocVault.Application.Services;
-using DocVault.Domain.Interfaces;
 using DocVault.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,8 +18,7 @@ public class AdminController : ControllerBase
     private readonly IAdminService _admin;
     private readonly IDocumentService _docs;
     private readonly AppDbContext _db;
-    private readonly IActivityLogger _logger;
-    public AdminController(IAdminService admin, IDocumentService docs, AppDbContext db, IActivityLogger logger) { _admin = admin; _docs = docs; _db = db; _logger = logger; }
+    public AdminController(IAdminService admin, IDocumentService docs, AppDbContext db) { _admin = admin; _docs = docs; _db = db; }
 
     private Guid CurrentUserId =>
         Guid.TryParse(User.FindFirstValue("sub"), out var id)
@@ -199,26 +197,7 @@ public class AdminController : ControllerBase
         if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
         if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
 
-        int count;
-        if (!from.HasValue && !to.HasValue)
-        {
-            count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM activity_logs", ct);
-        }
-        else
-        {
-            var conditions = new List<string>();
-            var parameters = new List<object>();
-            if (from.HasValue) { conditions.Add($"created_at >= {{{parameters.Count}}}"); parameters.Add(from.Value.Date); }
-            if (to.HasValue)   { conditions.Add($"created_at < {{{parameters.Count}}}"); parameters.Add(to.Value.Date.AddDays(1)); }
-            count = await _db.Database.ExecuteSqlRawAsync(
-                $"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}",
-                parameters.ToArray(), ct);
-        }
-
-        var detail = (from.HasValue || to.HasValue)
-            ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
-            : $"Deleted all {count} activity log(s)";
-        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null, detail, CurrentUserId, ct: ct);
+        var count = await _admin.DeleteActivityLogsAsync(from, to, CurrentUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
     }
 
@@ -227,11 +206,7 @@ public class AdminController : ControllerBase
         [FromBody] long[] ids,
         CancellationToken ct)
     {
-        int count = await _db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM activity_logs WHERE id = ANY({0})", ids, ct);
-
-        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
-            $"Deleted {count} selected activity log(s)", CurrentUserId, ct: ct);
+        var count = await _admin.DeleteSelectedActivityLogsAsync(ids, CurrentUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
     }
 }
