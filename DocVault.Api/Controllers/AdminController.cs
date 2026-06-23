@@ -205,4 +205,18 @@ public class AdminController : ControllerBase
         var count = await _admin.DeleteSelectedActivityLogsAsync(ids, CurrentUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
     }
+
+    [HttpGet("notifications")]
+    public async Task<ActionResult<ApiResponse<List<NotificationDto>>>> GetNotifications(CancellationToken ct)
+    {
+        var items = await _admin.GetNotificationsAsync(CurrentUserId, ct);
+        return Ok(ApiResponse<List<NotificationDto>>.Ok(items, HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("notifications/mark-read")]
+    public async Task<ActionResult<ApiResponse<object>>> MarkNotificationsRead(CancellationToken ct)
+    {
+        await _admin.MarkNotificationsReadAsync(CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Marked as read." }, HttpContext.TraceIdentifier));
+    }
 }

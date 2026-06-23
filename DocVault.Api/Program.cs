@@ -183,6 +183,18 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by_admin boolean NOT NULL DEFAULT false");
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE activity_logs DISABLE TRIGGER USER");
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id          SERIAL PRIMARY KEY,
+            user_id     UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+            title       VARCHAR(300) NOT NULL,
+            message     TEXT NOT NULL,
+            type        VARCHAR(30) NOT NULL DEFAULT 'INFO',
+            is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            read_at     TIMESTAMPTZ
+        )
+        """);
 }
 
 // Seed admin user and reference data on first run

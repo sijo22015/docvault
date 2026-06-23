@@ -405,4 +405,23 @@ public class AdminService : IAdminService
         await _logger.LogAsync("PURGE_ADMIN_DELETED", "Document", null, $"Permanently deleted {docs.Count} admin-deleted document(s)", adminId, ct: ct);
         return docs.Count;
     }
+
+    public async Task<List<NotificationDto>> GetNotificationsAsync(Guid adminId, CancellationToken ct = default)
+    {
+        return await _db.Notifications
+            .Where(n => n.UserId == adminId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(20)
+            .Select(n => new NotificationDto(n.Id, n.Title, n.Message, n.Type, n.IsRead, n.CreatedAt))
+            .ToListAsync(ct);
+    }
+
+    public async Task MarkNotificationsReadAsync(Guid adminId, CancellationToken ct = default)
+    {
+        await _db.Notifications
+            .Where(n => n.UserId == adminId && !n.IsRead)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(n => n.IsRead, true)
+                .SetProperty(n => n.ReadAt, DateTime.UtcNow), ct);
+    }
 }
