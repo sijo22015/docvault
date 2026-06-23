@@ -199,10 +199,21 @@ public class AdminController : ControllerBase
         if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
         if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
 
-        var toDelete = await query.ToListAsync(ct);
-        int count = toDelete.Count;
-        _db.ActivityLogs.RemoveRange(toDelete);
-        await _db.SaveChangesAsync(ct);
+        int count;
+        if (!from.HasValue && !to.HasValue)
+        {
+            count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM activity_logs", ct);
+        }
+        else
+        {
+            var conditions = new List<string>();
+            var parameters = new List<object>();
+            if (from.HasValue) { conditions.Add($"created_at >= {{{parameters.Count}}}"); parameters.Add(from.Value.Date); }
+            if (to.HasValue)   { conditions.Add($"created_at < {{{parameters.Count}}}"); parameters.Add(to.Value.Date.AddDays(1)); }
+            count = await _db.Database.ExecuteSqlRawAsync(
+                $"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}",
+                parameters.ToArray(), ct);
+        }
 
         var detail = (from.HasValue || to.HasValue)
             ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
@@ -216,10 +227,8 @@ public class AdminController : ControllerBase
         [FromBody] long[] ids,
         CancellationToken ct)
     {
-        var toDelete = await _db.ActivityLogs.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
-        int count = toDelete.Count;
-        _db.ActivityLogs.RemoveRange(toDelete);
-        await _db.SaveChangesAsync(ct);
+        int count = await _db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM activity_logs WHERE id = ANY({0})", ids, ct);
 
         await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
             $"Deleted {count} selected activity log(s)", CurrentUserId, ct: ct);
