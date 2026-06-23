@@ -195,6 +195,27 @@ public class DocumentService : IDocumentService
         await _logger.LogAsync("RESTORE", "Document", doc.Id.ToString(), doc.Title, userId, ct: ct);
     }
 
+    public async Task<DocumentDto> UpdateDocumentAsync(Guid id, Guid? requestingUserId, bool isAdmin, UpdateDocumentRequest request, CancellationToken ct = default)
+    {
+        var query = _db.Documents.Where(d => d.Id == id && !d.IsDeleted);
+        if (!isAdmin) query = query.Where(d => d.UserId == requestingUserId);
+
+        var doc = await query
+            .Include(d => d.User)
+            .Include(d => d.Department)
+            .Include(d => d.FinancialYear)
+            .Include(d => d.DocumentType)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException("Document not found.");
+
+        doc.Title = request.Title;
+        doc.Description = request.Description;
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("UPDATE", "Document", doc.Id.ToString(), doc.Title, requestingUserId ?? Guid.Empty, ct: ct);
+
+        return MapToDto(doc);
+    }
+
     public async Task<IEnumerable<(string FileName, string Hash, bool Mismatch)>> VerifyIntegrityAsync(int financialYearId, CancellationToken ct = default)
     {
         var docs = await _db.Documents

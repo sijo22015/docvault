@@ -69,6 +69,13 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<PagedResult<DocumentDto>>.Ok(result, HttpContext.TraceIdentifier));
     }
 
+    [HttpPatch("documents/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<DocumentDto>>> AdminUpdateDocument(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken ct)
+    {
+        var result = await _docs.UpdateDocumentAsync(id, CurrentUserId, isAdmin: true, request, ct);
+        return Ok(ApiResponse<DocumentDto>.Ok(result, HttpContext.TraceIdentifier));
+    }
+
     [HttpDelete("documents/{id:guid}/hard")]
     public async Task<ActionResult<ApiResponse<object>>> AdminHardDeleteDocument(Guid id, CancellationToken ct)
     {

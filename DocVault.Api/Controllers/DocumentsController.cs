@@ -72,6 +72,13 @@ public class DocumentsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { message = "Document deleted. Can be restored within 30 days." }, HttpContext.TraceIdentifier));
     }
 
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<DocumentDto>>> Update(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken ct)
+    {
+        var result = await _docs.UpdateDocumentAsync(id, CurrentUserId, isAdmin: false, request, ct);
+        return Ok(ApiResponse<DocumentDto>.Ok(result, HttpContext.TraceIdentifier));
+    }
+
     [HttpPost("{id:guid}/restore")]
     public async Task<ActionResult<ApiResponse<object>>> Restore(Guid id, CancellationToken ct)
     {

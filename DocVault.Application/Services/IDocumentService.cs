@@ -11,5 +11,6 @@ public interface IDocumentService
     Task<Stream> DownloadAsync(Guid id, Guid? requestingUserId, bool isAdmin, CancellationToken ct = default);
     Task SoftDeleteAsync(Guid id, Guid userId, CancellationToken ct = default);
     Task RestoreAsync(Guid id, Guid userId, CancellationToken ct = default);
+    Task<DocumentDto> UpdateDocumentAsync(Guid id, Guid? requestingUserId, bool isAdmin, UpdateDocumentRequest request, CancellationToken ct = default);
     Task<IEnumerable<(string FileName, string Hash, bool Mismatch)>> VerifyIntegrityAsync(int financialYearId, CancellationToken ct = default);
 }
