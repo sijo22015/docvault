@@ -332,41 +332,35 @@ public class AdminService : IAdminService
 
     public async Task<int> DeleteActivityLogsAsync(DateTime? from, DateTime? to, Guid adminId, CancellationToken ct = default)
     {
-        using var conn = new NpgsqlConnection(_connStr);
-        await conn.OpenAsync(ct);
-        using var cmd = conn.CreateCommand();
-
         if (!from.HasValue && !to.HasValue)
+            return await _db.Database.ExecuteSqlRawAsync("DELETE FROM activity_logs", cancellationToken: ct);
+
+        if (from.HasValue && to.HasValue)
         {
-            cmd.CommandText = "DELETE FROM activity_logs";
-        }
-        else
-        {
-            var conditions = new List<string>();
-            if (from.HasValue)
-            {
-                cmd.Parameters.AddWithValue("from", from.Value.Date);
-                conditions.Add("created_at >= @from");
-            }
-            if (to.HasValue)
-            {
-                cmd.Parameters.AddWithValue("to", to.Value.Date.AddDays(1));
-                conditions.Add("created_at < @to");
-            }
-            cmd.CommandText = $"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}";
+            var f = from.Value.Date;
+            var t = to.Value.Date.AddDays(1);
+            return await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM activity_logs WHERE created_at >= {f} AND created_at < {t}", ct);
         }
 
-        return await cmd.ExecuteNonQueryAsync(ct);
+        if (from.HasValue)
+        {
+            var f = from.Value.Date;
+            return await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM activity_logs WHERE created_at >= {f}", ct);
+        }
+
+        var tt = to!.Value.Date.AddDays(1);
+        return await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"DELETE FROM activity_logs WHERE created_at < {tt}", ct);
     }
 
     public async Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default)
     {
         if (ids == null || ids.Length == 0) return 0;
-        using var conn = new NpgsqlConnection(_connStr);
-        await conn.OpenAsync(ct);
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"DELETE FROM activity_logs WHERE id IN ({string.Join(",", ids)})";
-        return await cmd.ExecuteNonQueryAsync(ct);
+        return await _db.Database.ExecuteSqlRawAsync(
+            $"DELETE FROM activity_logs WHERE id IN ({string.Join(",", ids)})",
+            cancellationToken: ct);
     }
 
     public async Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
