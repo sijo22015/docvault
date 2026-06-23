@@ -170,6 +170,8 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE \"AspNetUsers\" ADD COLUMN IF NOT EXISTS \"CommunicationAddress\" character varying(500)");
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by_admin boolean NOT NULL DEFAULT false");
+    await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE activity_logs DISABLE TRIGGER ALL");
 }
 
 // Seed admin user and reference data on first run
