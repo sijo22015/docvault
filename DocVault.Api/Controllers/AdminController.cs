@@ -199,7 +199,11 @@ public class AdminController : ControllerBase
         if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
         if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
 
-        int count = await query.ExecuteDeleteAsync(ct);
+        var toDelete = await query.ToListAsync(ct);
+        int count = toDelete.Count;
+        _db.ActivityLogs.RemoveRange(toDelete);
+        await _db.SaveChangesAsync(ct);
+
         var detail = (from.HasValue || to.HasValue)
             ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
             : $"Deleted all {count} activity log(s)";
@@ -212,7 +216,11 @@ public class AdminController : ControllerBase
         [FromBody] long[] ids,
         CancellationToken ct)
     {
-        int count = await _db.ActivityLogs.Where(l => ids.Contains(l.Id)).ExecuteDeleteAsync(ct);
+        var toDelete = await _db.ActivityLogs.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
+        int count = toDelete.Count;
+        _db.ActivityLogs.RemoveRange(toDelete);
+        await _db.SaveChangesAsync(ct);
+
         await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
             $"Deleted {count} selected activity log(s)", CurrentUserId, ct: ct);
         return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
