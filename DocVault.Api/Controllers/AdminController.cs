@@ -187,21 +187,17 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<PagedResult<object>>.Ok(new PagedResult<object>(items, total, page, pageSize), HttpContext.TraceIdentifier));
     }
 
-    [HttpDelete("activity-logs")]
+    [HttpPost("activity-logs/delete")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteActivityLogs(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         CancellationToken ct)
     {
-        var query = _db.ActivityLogs.AsQueryable();
-        if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
-        if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
-
         var count = await _admin.DeleteActivityLogsAsync(from, to, CurrentUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { message = $"Deleted {count} activity log(s).", count }, HttpContext.TraceIdentifier));
     }
 
-    [HttpDelete("activity-logs/selected")]
+    [HttpPost("activity-logs/delete-selected")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteSelectedActivityLogs(
         [FromBody] long[] ids,
         CancellationToken ct)

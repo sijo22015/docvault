@@ -334,36 +334,39 @@ public class AdminService : IAdminService
     {
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync(ct);
+        using var cmd = conn.CreateCommand();
 
-        int count;
         if (!from.HasValue && !to.HasValue)
         {
-            count = await conn.ExecuteAsync("DELETE FROM activity_logs");
+            cmd.CommandText = "DELETE FROM activity_logs";
         }
         else
         {
             var conditions = new List<string>();
-            var p = new DynamicParameters();
-            if (from.HasValue) { conditions.Add("created_at >= @from"); p.Add("from", from.Value.Date); }
-            if (to.HasValue)   { conditions.Add("created_at < @to");   p.Add("to",   to.Value.Date.AddDays(1)); }
-            count = await conn.ExecuteAsync($"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}", p);
+            if (from.HasValue)
+            {
+                cmd.Parameters.AddWithValue("from", from.Value.Date);
+                conditions.Add("created_at >= @from");
+            }
+            if (to.HasValue)
+            {
+                cmd.Parameters.AddWithValue("to", to.Value.Date.AddDays(1));
+                conditions.Add("created_at < @to");
+            }
+            cmd.CommandText = $"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}";
         }
 
-        var detail = (from.HasValue || to.HasValue)
-            ? $"Deleted {count} log(s) in range {from:d} – {to:d}"
-            : $"Deleted all {count} activity log(s)";
-        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null, detail, adminId, ct: ct);
-        return count;
+        return await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default)
     {
+        if (ids == null || ids.Length == 0) return 0;
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync(ct);
-        int count = await conn.ExecuteAsync("DELETE FROM activity_logs WHERE id = ANY(@ids)", new { ids });
-        await _logger.LogAsync("DELETE_ACTIVITY_LOGS", "ActivityLog", null,
-            $"Deleted {count} selected activity log(s)", adminId, ct: ct);
-        return count;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"DELETE FROM activity_logs WHERE id IN ({string.Join(",", ids)})";
+        return await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
