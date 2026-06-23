@@ -112,6 +112,17 @@ builder.Services.AddRateLimiter(opts =>
         p.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         p.QueueLimit = 5;
     });
+    // Global fallback: 60 req/min per IP for all endpoints not covered by a named policy
+    opts.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 5
+            }));
     opts.RejectionStatusCode = 429;
 });
 

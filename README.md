@@ -14,7 +14,7 @@ A role-based document management system for colleges and companies to manage dep
 | Logging | Serilog → file + console |
 | Validation | FluentValidation |
 | File Storage | Local disk (`/storage/{fy}/{dept}/{userId}/`) |
-| Frontend | React 18 + Vite + TypeScript |
+| Frontend | React 19 + Vite + TypeScript |
 | State | Redux Toolkit + RTK Query |
 | Styling | Tailwind CSS v4 + MUI v9 |
 | Charts | Recharts |
@@ -35,7 +35,7 @@ docker-compose up --build
 | Swagger | http://localhost:5080/swagger |
 | PostgreSQL | localhost:5432 |
 
-Default admin credentials: `admin@docvault.local` / `Admin@123456`
+Default admin credentials: `admin@docvault.local` / `Admin@12345`
 
 ## Local Development
 
@@ -118,12 +118,12 @@ Base URL: `/api/v1`
 
 | Group | Key Endpoints |
 |---|---|
-| Auth | POST /auth/register, /auth/login, /auth/refresh, /auth/logout |
+| Auth | POST /auth/register, /auth/login, /auth/refresh, /auth/logout, /auth/forgot-password, /auth/reset-password |
 | Documents | POST /documents, GET /documents, GET /documents/{id}/download, DELETE /documents/{id} |
 | Admin Users | GET /admin/users, POST /admin/users/{id}/approve, /admin/users/{id}/revoke |
 | Admin Docs | GET /admin/documents, GET /admin/documents/verify-integrity |
 | Analytics | GET /admin/dashboard/summary, GET /admin/dashboard/analytics |
-| Activity | GET /admin/activity-logs |
+| Activity | GET /admin/activity-logs, POST /admin/activity-logs/delete, POST /admin/activity-logs/delete-selected |
 | Export | GET /admin/export/fy/{fyId} |
 | Reference | GET /reference/departments, /reference/document-types, /reference/financial-years |
 
@@ -135,7 +135,7 @@ Full Swagger docs available at `/swagger` when the API is running.
 - JWT: HS256, 15-min access tokens, 7-day refresh tokens with rotation
 - Rate limiting: 5 login attempts/min, 60 API calls/min
 - File upload: magic-byte validation + SHA-256 integrity hash
-- Activity logs: append-only (DB trigger prevents UPDATE/DELETE)
+- Activity logs: admin can delete all, selected, or logs within a date range (user-defined trigger disabled at startup to allow admin deletes)
 - Financial year lock: prevents writes on closed years
 
 ## Configuration
@@ -146,6 +146,12 @@ Key settings in `src/DocVault.Api/appsettings.json`:
 {
   "Jwt": { "SigningKey": "change-me-in-production" },
   "Storage": { "RootPath": "D:\\DocVault\\storage", "MaxFileSizeMB": "25" },
-  "Seed": { "AdminEmail": "admin@docvault.local", "AdminPassword": "Admin@123456" }
+  "Seed": { "AdminEmail": "admin@docvault.local", "AdminPassword": "Admin@12345" }
 }
+```
+
+Frontend environment variable (`.env` in `frontend/`):
+
+```env
+VITE_GROQ_API_KEY=your_groq_api_key_here   # free key — https://console.groq.com
 ```

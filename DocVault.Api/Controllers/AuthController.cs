@@ -3,6 +3,7 @@ using DocVault.Application.DTOs.Common;
 using DocVault.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DocVault.Api.Controllers;
 
@@ -48,6 +49,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("login")]
     public async Task<ActionResult<ApiResponse<object>>> Register([FromBody] RegisterRequest request, CancellationToken ct)
     {
         await _auth.RegisterAsync(request, ct);
@@ -55,6 +57,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<ActionResult<ApiResponse<UserSessionDto>>> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await _auth.LoginAsync(request, ct);
@@ -90,6 +93,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("login")]
     public async Task<ActionResult<ApiResponse<object>>> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
     {
         await _auth.ForgotPasswordAsync(request, ct);
@@ -97,6 +101,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting("login")]
     public async Task<ActionResult<ApiResponse<object>>> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
     {
         await _auth.ResetPasswordAsync(request, ct);
