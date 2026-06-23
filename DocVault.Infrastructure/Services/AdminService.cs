@@ -332,35 +332,61 @@ public class AdminService : IAdminService
 
     public async Task<int> DeleteActivityLogsAsync(DateTime? from, DateTime? to, Guid adminId, CancellationToken ct = default)
     {
-        if (!from.HasValue && !to.HasValue)
-            return await _db.Database.ExecuteSqlRawAsync("DELETE FROM activity_logs", cancellationToken: ct);
-
-        if (from.HasValue && to.HasValue)
+        try
         {
-            var f = from.Value.Date;
-            var t = to.Value.Date.AddDays(1);
-            return await _db.Database.ExecuteSqlInterpolatedAsync(
-                $"DELETE FROM activity_logs WHERE created_at >= {f} AND created_at < {t}", ct);
+            var conn = _db.Database.GetDbConnection();
+            await _db.Database.OpenConnectionAsync(ct);
+            try
+            {
+                using var cmd = conn.CreateCommand();
+                if (!from.HasValue && !to.HasValue)
+                {
+                    cmd.CommandText = "DELETE FROM activity_logs";
+                }
+                else
+                {
+                    var conditions = new List<string>();
+                    if (from.HasValue)
+                    {
+                        var p = cmd.CreateParameter(); p.ParameterName = "pfrom"; p.Value = from.Value.Date;
+                        cmd.Parameters.Add(p); conditions.Add("created_at >= @pfrom");
+                    }
+                    if (to.HasValue)
+                    {
+                        var p = cmd.CreateParameter(); p.ParameterName = "pto"; p.Value = to.Value.Date.AddDays(1);
+                        cmd.Parameters.Add(p); conditions.Add("created_at < @pto");
+                    }
+                    cmd.CommandText = $"DELETE FROM activity_logs WHERE {string.Join(" AND ", conditions)}";
+                }
+                return await cmd.ExecuteNonQueryAsync(ct);
+            }
+            finally { await _db.Database.CloseConnectionAsync(); }
         }
-
-        if (from.HasValue)
+        catch (Exception ex)
         {
-            var f = from.Value.Date;
-            return await _db.Database.ExecuteSqlInterpolatedAsync(
-                $"DELETE FROM activity_logs WHERE created_at >= {f}", ct);
+            throw new InvalidOperationException($"Delete failed: {ex.GetType().Name}: {ex.Message}");
         }
-
-        var tt = to!.Value.Date.AddDays(1);
-        return await _db.Database.ExecuteSqlInterpolatedAsync(
-            $"DELETE FROM activity_logs WHERE created_at < {tt}", ct);
     }
 
     public async Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default)
     {
         if (ids == null || ids.Length == 0) return 0;
-        return await _db.Database.ExecuteSqlRawAsync(
-            $"DELETE FROM activity_logs WHERE id IN ({string.Join(",", ids)})",
-            cancellationToken: ct);
+        try
+        {
+            var conn = _db.Database.GetDbConnection();
+            await _db.Database.OpenConnectionAsync(ct);
+            try
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"DELETE FROM activity_logs WHERE id IN ({string.Join(",", ids)})";
+                return await cmd.ExecuteNonQueryAsync(ct);
+            }
+            finally { await _db.Database.CloseConnectionAsync(); }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Delete failed: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     public async Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
