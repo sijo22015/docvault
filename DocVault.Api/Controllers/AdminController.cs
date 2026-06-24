@@ -26,11 +26,12 @@ public class AdminController : ControllerBase
             : throw new UnauthorizedAccessException("Session expired. Please log in again.");
 
     [HttpGet("users")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<PagedResult<UserDto>>>> GetUsers(
         [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
-        var result = await _admin.GetUsersAsync(status, page, pageSize, ct);
+        var excludeAdmins = User.IsInRole("SecondaryAdmin");
+        var result = await _admin.GetUsersAsync(status, page, pageSize, excludeAdmins, ct);
         return Ok(ApiResponse<PagedResult<UserDto>>.Ok(result, HttpContext.TraceIdentifier));
     }
 

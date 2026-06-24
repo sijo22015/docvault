@@ -36,7 +36,7 @@ public class AdminService : IAdminService
         _connStr = config.GetConnectionString("DefaultConnection")!;
     }
 
-    public async Task<PagedResult<UserDto>> GetUsersAsync(string? status, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PagedResult<UserDto>> GetUsersAsync(string? status, int page, int pageSize, bool excludeAdmins = false, CancellationToken ct = default)
     {
         var query = _db.Users.AsQueryable();
         if (!string.IsNullOrEmpty(status))
@@ -50,6 +50,7 @@ public class AdminService : IAdminService
         foreach (var u in users)
         {
             var roles = await _userManager.GetRolesAsync(u);
+            if (excludeAdmins && roles.Contains("Admin")) continue;
             dtos.Add(new UserDto(u.Id, u.FullName, u.Email!, u.Department, u.UserStatus, u.CreatedAt, u.LastLoginAt, u.RevokedAt, roles));
         }
         return new PagedResult<UserDto>(dtos, total, page, pageSize);
