@@ -75,7 +75,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("dashboard/summary")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<DashboardSummaryDto>>> GetSummary(CancellationToken ct)
     {
         var result = await _admin.GetDashboardSummaryAsync(ct);
@@ -83,7 +83,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("dashboard/analytics")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<AnalyticsDto>>> GetAnalytics([FromQuery] string fy, CancellationToken ct)
     {
         var result = await _admin.GetAnalyticsAsync(fy, ct);
