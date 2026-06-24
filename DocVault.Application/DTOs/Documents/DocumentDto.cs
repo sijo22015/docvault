@@ -14,6 +14,7 @@ public record DocumentDto(
     bool IsDeleted,
     DateTime? DeletedAt,
     string UploaderName,
+    Guid UploadedById,
     string DepartmentName,
     string FinancialYearLabel,
     string DocumentTypeName,

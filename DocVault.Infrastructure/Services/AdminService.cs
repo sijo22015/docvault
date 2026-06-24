@@ -221,7 +221,7 @@ public class AdminService : IAdminService
             .Include(d => d.User).Include(d => d.Department).Include(d => d.FinancialYear).Include(d => d.DocumentType)
             .ToListAsync(ct);
 
-        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin));
+        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin));
         return new PagedResult<DocumentDto>(dtos, total, request.Page, request.PageSize);
     }
 

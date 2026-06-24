@@ -101,10 +101,10 @@ public class AdminController : ControllerBase
     }
 
     [HttpPatch("documents/{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<DocumentDto>>> AdminUpdateDocument(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken ct)
     {
-        var result = await _docs.UpdateDocumentAsync(id, CurrentUserId, isAdmin: true, request, ct);
+        var result = await _docs.UpdateDocumentAsync(id, CurrentUserId, isAdmin: User.IsInRole("Admin"), request, ct);
         return Ok(ApiResponse<DocumentDto>.Ok(result, HttpContext.TraceIdentifier));
     }
 

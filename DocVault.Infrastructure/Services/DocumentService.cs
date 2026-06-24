@@ -268,5 +268,5 @@ public class DocumentService : IDocumentService
     private static DocumentDto MapToDto(Document d) => new(
         d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes,
         d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt,
-        d.User?.FullName ?? "", d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "");
+        d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "");
 }
