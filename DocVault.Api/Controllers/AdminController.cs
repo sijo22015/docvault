@@ -259,7 +259,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("notifications")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<List<NotificationDto>>>> GetNotifications(CancellationToken ct)
     {
         var items = await _admin.GetNotificationsAsync(CurrentUserId, ct);
@@ -267,7 +267,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("notifications/mark-read")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<object>>> MarkNotificationsRead(CancellationToken ct)
     {
         await _admin.MarkNotificationsReadAsync(CurrentUserId, ct);
