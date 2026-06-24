@@ -90,25 +90,34 @@ public class AdminService : IAdminService
         if (await _userManager.IsInRoleAsync(user, "Admin"))
             throw new InvalidOperationException("Admin accounts cannot be deleted.");
 
-        // Revoke active refresh tokens so sessions are killed immediately
-        var tokens = _db.RefreshTokens.Where(t => t.UserId == userId && !t.IsRevoked);
-        await tokens.ExecuteUpdateAsync(s => s
-            .SetProperty(t => t.IsRevoked, true)
-            .SetProperty(t => t.RevokedAt, DateTime.UtcNow), ct);
+        // 1. Delete refresh tokens (non-nullable FK — must remove rows, not just revoke)
+        await _db.RefreshTokens
+            .Where(t => t.UserId == userId)
+            .ExecuteDeleteAsync(ct);
 
-        // Purge all documents belonging to this user (files + DB rows + versions)
+        // 2. Delete notifications (non-nullable FK)
+        await _db.Notifications
+            .Where(n => n.UserId == userId)
+            .ExecuteDeleteAsync(ct);
+
+        // 3. Null out activity logs (nullable FK — preserves audit trail)
+        await _db.ActivityLogs
+            .Where(a => a.UserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.UserId, (Guid?)null), ct);
+
+        // 4. Purge document files then delete DB rows (document_versions cascade via DB)
         var docs = await _db.Documents
-            .Include(d => d.Versions)
             .Where(d => d.UserId == userId)
             .ToListAsync(ct);
 
         foreach (var doc in docs)
             try { await _storage.PurgeAsync(doc.FilePath, ct); } catch { /* ignore missing files */ }
 
-        _db.DocumentVersions.RemoveRange(docs.SelectMany(d => d.Versions));
-        _db.Documents.RemoveRange(docs);
-        await _db.SaveChangesAsync(ct);
+        await _db.Documents
+            .Where(d => d.UserId == userId)
+            .ExecuteDeleteAsync(ct);
 
+        // 5. Delete the user — Identity cascades AspNetUserClaims/Roles/Logins/Tokens
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
             throw new InvalidOperationException(string.Join("; ", result.Errors.Select(e => e.Description)));
