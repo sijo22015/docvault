@@ -72,7 +72,7 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid credentials.");
 
         var roles = await _userManager.GetRolesAsync(user);
-        var role = roles.Contains("Admin") ? "Admin" : "User";
+        var role = roles.Contains("Admin") ? "Admin" : roles.Contains("SecondaryAdmin") ? "SecondaryAdmin" : "User";
 
         var (accessToken, expiry) = GenerateAccessToken(user, role);
         var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
@@ -102,7 +102,7 @@ public class AuthService : IAuthService
         stored.RevokedAt = DateTime.UtcNow;
 
         var roles = await _userManager.GetRolesAsync(stored.User);
-        var role = roles.Contains("Admin") ? "Admin" : "User";
+        var role = roles.Contains("Admin") ? "Admin" : roles.Contains("SecondaryAdmin") ? "SecondaryAdmin" : "User";
         var (accessToken, expiry) = GenerateAccessToken(stored.User, role);
         var newRefresh = await CreateRefreshTokenAsync(stored.User.Id, ct);
         stored.ReplacedByToken = HashToken(newRefresh);

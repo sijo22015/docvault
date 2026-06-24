@@ -476,4 +476,34 @@ public class AdminService : IAdminService
                 .SetProperty(n => n.IsRead, true)
                 .SetProperty(n => n.ReadAt, DateTime.UtcNow), ct);
     }
+
+    public async Task MakeSecondaryAdminAsync(Guid userId, Guid adminId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (await _userManager.IsInRoleAsync(user, "Admin"))
+            throw new InvalidOperationException("Cannot modify a Super Admin account.");
+
+        if (await _userManager.IsInRoleAsync(user, "SecondaryAdmin"))
+            throw new InvalidOperationException("User is already a Secondary Admin.");
+
+        if (user.UserStatus != "APPROVED")
+            throw new InvalidOperationException("User must be approved before granting admin access.");
+
+        await _userManager.AddToRoleAsync(user, "SecondaryAdmin");
+        await _logger.LogAsync("GRANT_SECONDARY_ADMIN", "User", userId.ToString(), null, adminId, ct: ct);
+    }
+
+    public async Task RevokeSecondaryAdminAsync(Guid userId, Guid adminId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (!await _userManager.IsInRoleAsync(user, "SecondaryAdmin"))
+            throw new InvalidOperationException("User does not have Secondary Admin role.");
+
+        await _userManager.RemoveFromRoleAsync(user, "SecondaryAdmin");
+        await _logger.LogAsync("REVOKE_SECONDARY_ADMIN", "User", userId.ToString(), null, adminId, ct: ct);
+    }
 }

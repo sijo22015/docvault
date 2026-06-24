@@ -12,7 +12,7 @@ namespace DocVault.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/admin")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _admin;
@@ -26,6 +26,7 @@ public class AdminController : ControllerBase
             : throw new UnauthorizedAccessException("Session expired. Please log in again.");
 
     [HttpGet("users")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<PagedResult<UserDto>>>> GetUsers(
         [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
@@ -34,6 +35,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/approve")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> ApproveUser(Guid id, CancellationToken ct)
     {
         await _admin.ApproveUserAsync(id, CurrentUserId, ct);
@@ -41,6 +43,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/revoke")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> RevokeUser(Guid id, CancellationToken ct)
     {
         await _admin.RevokeUserAsync(id, CurrentUserId, ct);
@@ -48,13 +51,31 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("users/{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteUser(Guid id, CancellationToken ct)
     {
         await _admin.DeleteUserAsync(id, CurrentUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { message = "User permanently deleted." }, HttpContext.TraceIdentifier));
     }
 
+    [HttpPost("users/{id:guid}/make-secondary-admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> MakeSecondaryAdmin(Guid id, CancellationToken ct)
+    {
+        await _admin.MakeSecondaryAdminAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Secondary Admin role granted." }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("users/{id:guid}/revoke-secondary-admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> RevokeSecondaryAdmin(Guid id, CancellationToken ct)
+    {
+        await _admin.RevokeSecondaryAdminAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Secondary Admin role revoked." }, HttpContext.TraceIdentifier));
+    }
+
     [HttpGet("dashboard/summary")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<DashboardSummaryDto>>> GetSummary(CancellationToken ct)
     {
         var result = await _admin.GetDashboardSummaryAsync(ct);
@@ -62,6 +83,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("dashboard/analytics")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<AnalyticsDto>>> GetAnalytics([FromQuery] string fy, CancellationToken ct)
     {
         var result = await _admin.GetAnalyticsAsync(fy, ct);
@@ -69,6 +91,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("documents")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<PagedResult<DocumentDto>>>> SearchDocuments(
         [FromQuery] DocumentSearchRequest request, CancellationToken ct)
     {
@@ -77,6 +100,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPatch("documents/{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<DocumentDto>>> AdminUpdateDocument(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken ct)
     {
         var result = await _docs.UpdateDocumentAsync(id, CurrentUserId, isAdmin: true, request, ct);
@@ -84,6 +108,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("documents/{id:guid}/hard")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> AdminHardDeleteDocument(Guid id, CancellationToken ct)
     {
         await _admin.AdminHardDeleteDocumentAsync(id, CurrentUserId, ct);
@@ -91,6 +116,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("documents/{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> AdminSoftDeleteDocument(Guid id, CancellationToken ct)
     {
         await _admin.AdminSoftDeleteDocumentAsync(id, CurrentUserId, ct);
@@ -98,6 +124,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("documents/deleted")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> PurgeUserDeleted(CancellationToken ct)
     {
         var count = await _admin.AdminPurgeDeletedDocumentsAsync(CurrentUserId, ct);
@@ -105,6 +132,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("documents/deleted-by-admin")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> PurgeAdminDeleted(CancellationToken ct)
     {
         var count = await _admin.AdminPurgeAdminDeletedDocumentsAsync(CurrentUserId, ct);
@@ -112,6 +140,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("documents/{id:guid}/restore")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> AdminRestoreDocument(Guid id, CancellationToken ct)
     {
         await _admin.AdminRestoreDocumentAsync(id, CurrentUserId, ct);
@@ -119,6 +148,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("documents/{id:guid}/download")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<IActionResult> DownloadDocument(Guid id, CancellationToken ct)
     {
         var doc = await _docs.GetByIdAsync(id, null, isAdmin: true, ct);
@@ -128,6 +158,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("documents/verify-integrity")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> VerifyIntegrity([FromQuery] int fyId, CancellationToken ct)
     {
         var results = await _docs.VerifyIntegrityAsync(fyId, ct);
@@ -136,6 +167,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("financial-years/{id:int}/lock")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> LockFY(int id, CancellationToken ct)
     {
         await _admin.LockFinancialYearAsync(id, CurrentUserId, ct);
@@ -143,6 +175,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("export/fy/{fyId:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ExportFY(int fyId, CancellationToken ct)
     {
         var zip = await _admin.ExportFinancialYearZipAsync(fyId, ct);
@@ -150,6 +183,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("documents/merge-pdf")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> MergeDocumentsPdf([FromBody] MergePdfRequest? request, CancellationToken ct)
     {
         try
@@ -164,6 +198,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("activity-logs")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<PagedResult<object>>>> GetActivityLogs(
         [FromQuery] string? action,
         [FromQuery] string? userId,
@@ -202,6 +237,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("activity-logs/delete")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteActivityLogs(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
@@ -212,6 +248,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("activity-logs/delete-selected")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteSelectedActivityLogs(
         [FromBody] long[] ids,
         CancellationToken ct)
@@ -221,6 +258,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("notifications")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<List<NotificationDto>>>> GetNotifications(CancellationToken ct)
     {
         var items = await _admin.GetNotificationsAsync(CurrentUserId, ct);
@@ -228,6 +266,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("notifications/mark-read")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> MarkNotificationsRead(CancellationToken ct)
     {
         await _admin.MarkNotificationsReadAsync(CurrentUserId, ct);

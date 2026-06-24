@@ -25,4 +25,6 @@ public interface IAdminService
     Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default);
     Task<List<NotificationDto>> GetNotificationsAsync(Guid adminId, CancellationToken ct = default);
     Task MarkNotificationsReadAsync(Guid adminId, CancellationToken ct = default);
+    Task MakeSecondaryAdminAsync(Guid userId, Guid adminId, CancellationToken ct = default);
+    Task RevokeSecondaryAdminAsync(Guid userId, Guid adminId, CancellationToken ct = default);
 }
