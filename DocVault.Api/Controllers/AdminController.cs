@@ -47,6 +47,13 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { message = "User revoked." }, HttpContext.TraceIdentifier));
     }
 
+    [HttpDelete("users/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteUser(Guid id, CancellationToken ct)
+    {
+        await _admin.DeleteUserAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "User permanently deleted." }, HttpContext.TraceIdentifier));
+    }
+
     [HttpGet("dashboard/summary")]
     public async Task<ActionResult<ApiResponse<DashboardSummaryDto>>> GetSummary(CancellationToken ct)
     {

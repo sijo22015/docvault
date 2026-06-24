@@ -79,6 +79,44 @@ public class AdminService : IAdminService
         await _notifier.NotifyAsync(userId, "Account Revoked", "Your account access has been revoked.", ct: ct);
     }
 
+    public async Task DeleteUserAsync(Guid userId, Guid adminId, CancellationToken ct = default)
+    {
+        if (userId == adminId)
+            throw new InvalidOperationException("You cannot delete your own account.");
+
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (await _userManager.IsInRoleAsync(user, "Admin"))
+            throw new InvalidOperationException("Admin accounts cannot be deleted.");
+
+        // Revoke active refresh tokens so sessions are killed immediately
+        var tokens = _db.RefreshTokens.Where(t => t.UserId == userId && !t.IsRevoked);
+        await tokens.ExecuteUpdateAsync(s => s
+            .SetProperty(t => t.IsRevoked, true)
+            .SetProperty(t => t.RevokedAt, DateTime.UtcNow), ct);
+
+        // Purge all documents belonging to this user (files + DB rows + versions)
+        var docs = await _db.Documents
+            .Include(d => d.Versions)
+            .Where(d => d.UserId == userId)
+            .ToListAsync(ct);
+
+        foreach (var doc in docs)
+            try { await _storage.PurgeAsync(doc.FilePath, ct); } catch { /* ignore missing files */ }
+
+        _db.DocumentVersions.RemoveRange(docs.SelectMany(d => d.Versions));
+        _db.Documents.RemoveRange(docs);
+        await _db.SaveChangesAsync(ct);
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join("; ", result.Errors.Select(e => e.Description)));
+
+        await _logger.LogAsync("DELETE_USER", "User", userId.ToString(),
+            $"Permanently deleted user {user.Email} and {docs.Count} document(s)", adminId, ct: ct);
+    }
+
     public async Task<DashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken ct = default)
     {
         using var conn = new NpgsqlConnection(_connStr);

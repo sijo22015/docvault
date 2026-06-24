@@ -9,6 +9,7 @@ public interface IAdminService
     Task<PagedResult<UserDto>> GetUsersAsync(string? status, int page, int pageSize, CancellationToken ct = default);
     Task ApproveUserAsync(Guid userId, Guid adminId, CancellationToken ct = default);
     Task RevokeUserAsync(Guid userId, Guid adminId, CancellationToken ct = default);
+    Task DeleteUserAsync(Guid userId, Guid adminId, CancellationToken ct = default);
     Task<DashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken ct = default);
     Task<AnalyticsDto> GetAnalyticsAsync(string financialYear, CancellationToken ct = default);
     Task<PagedResult<DocumentDto>> SearchDocumentsAsync(DocumentSearchRequest request, CancellationToken ct = default);
