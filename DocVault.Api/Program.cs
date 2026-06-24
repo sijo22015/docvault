@@ -184,14 +184,39 @@ using (var scope = app.Services.CreateScope())
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE activity_logs DISABLE TRIGGER USER");
 
-    // Rename admin email from admin@docvault.local → admin@docvault.com (no-op after first run)
+    // Clean up legacy admin@docvault.local account (idempotent — safe on every startup)
+    // Case 1: both old and new exist → delete old (new already present, no-rename needed)
+    // Case 2: only old exists → rename it to new
+    // Case 3: neither or only new exists → no-op
     await db.Database.ExecuteSqlRawAsync("""
-        UPDATE "AspNetUsers"
-        SET "Email"              = 'admin@docvault.com',
-            "NormalizedEmail"    = 'ADMIN@DOCVAULT.COM',
-            "UserName"           = 'admin@docvault.com',
-            "NormalizedUserName" = 'ADMIN@DOCVAULT.COM'
-        WHERE "Email" = 'admin@docvault.local'
+        DO $$
+        DECLARE
+            old_id UUID;
+        BEGIN
+            SELECT "Id" INTO old_id FROM "AspNetUsers" WHERE "Email" = 'admin@docvault.local';
+            IF old_id IS NOT NULL AND EXISTS (
+                SELECT 1 FROM "AspNetUsers" WHERE "Email" = 'admin@docvault.com'
+            ) THEN
+                -- Both exist: purge the old account and all its FK rows
+                DELETE FROM refresh_tokens     WHERE user_id = old_id;
+                DELETE FROM notifications      WHERE user_id = old_id;
+                UPDATE activity_logs SET user_id = NULL WHERE user_id = old_id;
+                DELETE FROM documents          WHERE user_id = old_id;
+                DELETE FROM "AspNetUserClaims"  WHERE "UserId" = old_id;
+                DELETE FROM "AspNetUserRoles"   WHERE "UserId" = old_id;
+                DELETE FROM "AspNetUserLogins"  WHERE "UserId" = old_id;
+                DELETE FROM "AspNetUserTokens"  WHERE "UserId" = old_id;
+                DELETE FROM "AspNetUsers"       WHERE "Id"     = old_id;
+            ELSIF old_id IS NOT NULL THEN
+                -- Only old exists: rename it
+                UPDATE "AspNetUsers"
+                SET "Email"              = 'admin@docvault.com',
+                    "NormalizedEmail"    = 'ADMIN@DOCVAULT.COM',
+                    "UserName"           = 'admin@docvault.com',
+                    "NormalizedUserName" = 'ADMIN@DOCVAULT.COM'
+                WHERE "Id" = old_id;
+            END IF;
+        END $$;
         """);
 
     await db.Database.ExecuteSqlRawAsync("""
