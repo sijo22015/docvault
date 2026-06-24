@@ -183,6 +183,17 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by_admin boolean NOT NULL DEFAULT false");
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE activity_logs DISABLE TRIGGER USER");
+
+    // Rename admin email from admin@docvault.local → admin@docvault.com (no-op after first run)
+    await db.Database.ExecuteSqlRawAsync("""
+        UPDATE "AspNetUsers"
+        SET "Email"              = 'admin@docvault.com',
+            "NormalizedEmail"    = 'ADMIN@DOCVAULT.COM',
+            "UserName"           = 'admin@docvault.com',
+            "NormalizedUserName" = 'ADMIN@DOCVAULT.COM'
+        WHERE "Email" = 'admin@docvault.local'
+        """);
+
     await db.Database.ExecuteSqlRawAsync("""
         CREATE TABLE IF NOT EXISTS notifications (
             id          SERIAL PRIMARY KEY,
@@ -207,7 +218,7 @@ using (var scope = app.Services.CreateScope())
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole<Guid>(role));
 
-    var adminEmail = app.Configuration["Seed:AdminEmail"] ?? "admin@docvault.local";
+    var adminEmail = app.Configuration["Seed:AdminEmail"] ?? "admin@docvault.com";
     var adminPassword = app.Configuration["Seed:AdminPassword"] ?? "Admin@12345";
     var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
     if (existingAdmin == null)
