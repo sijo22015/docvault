@@ -87,8 +87,13 @@ public class AdminService : IAdminService
         var user = await _userManager.FindByIdAsync(userId.ToString())
             ?? throw new InvalidOperationException("User not found.");
 
+        // Prevent removing the last admin (would lock everyone out), but allow deleting other admins
         if (await _userManager.IsInRoleAsync(user, "Admin"))
-            throw new InvalidOperationException("Admin accounts cannot be deleted.");
+        {
+            var adminCount = (await _userManager.GetUsersInRoleAsync("Admin")).Count;
+            if (adminCount <= 1)
+                throw new InvalidOperationException("Cannot delete the last admin account.");
+        }
 
         // 1. Delete refresh tokens (non-nullable FK — must remove rows, not just revoke)
         await _db.RefreshTokens
