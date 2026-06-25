@@ -8,6 +8,7 @@ using DocVault.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DocVault.Api.Controllers;
 
@@ -112,6 +113,41 @@ public class MeController : ControllerBase
         }
 
         return Ok(ApiResponse<object>.Ok(new { message = "Password changed successfully." }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpGet("activity-logs")]
+    public async Task<ActionResult<ApiResponse<PagedResult<object>>>> GetMyActivityLogs(
+        [FromQuery] string? action,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var uid = CurrentUserId;
+        var query = _db.ActivityLogs.Where(l => l.UserId == uid);
+        if (!string.IsNullOrEmpty(action)) query = query.Where(l => l.Action == action.ToUpperInvariant());
+        if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
+        if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(l => l.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(l => (object)new
+            {
+                l.Id,
+                l.Action,
+                l.EntityType,
+                l.EntityId,
+                l.Details,
+                l.IpAddress,
+                l.CreatedAt,
+            })
+            .ToListAsync(ct);
+
+        return Ok(ApiResponse<PagedResult<object>>.Ok(new PagedResult<object>(items, total, page, pageSize), HttpContext.TraceIdentifier));
     }
 
     [HttpGet("photo/{userId:guid}")]

@@ -199,7 +199,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("activity-logs")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SecondaryAdmin")]
     public async Task<ActionResult<ApiResponse<PagedResult<object>>>> GetActivityLogs(
         [FromQuery] string? action,
         [FromQuery] string? userId,
@@ -214,6 +214,23 @@ public class AdminController : ControllerBase
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var uid)) query = query.Where(l => l.UserId == uid);
         if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
         if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
+
+        // SecondaryAdmin sees everything except Super Admin's activities
+        if (User.IsInRole("SecondaryAdmin"))
+        {
+            var adminRoleId = await _db.Roles
+                .Where(r => r.Name == "Admin")
+                .Select(r => r.Id)
+                .FirstOrDefaultAsync(ct);
+            if (adminRoleId != default)
+            {
+                var adminUserIds = await _db.UserRoles
+                    .Where(ur => ur.RoleId == adminRoleId)
+                    .Select(ur => ur.UserId)
+                    .ToListAsync(ct);
+                query = query.Where(l => !l.UserId.HasValue || !adminUserIds.Contains(l.UserId.Value));
+            }
+        }
 
         var total = await query.CountAsync(ct);
         var items = await query
