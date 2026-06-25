@@ -214,6 +214,8 @@ public class AdminService : IAdminService
         }
         if (request.OnlyDeletedByAdmin.HasValue)
             query = query.Where(d => d.DeletedByAdmin == request.OnlyDeletedByAdmin.Value);
+        if (request.OnlyDeletedBySecAdmin.HasValue)
+            query = query.Where(d => d.DeletedBySecAdmin == request.OnlyDeletedBySecAdmin.Value);
 
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(d => d.UploadedAt)
@@ -228,7 +230,7 @@ public class AdminService : IAdminService
             ? (await _db.UserRoles.Where(ur => ur.RoleId == secAdminRoleId && uploaderIds.Contains(ur.UserId)).Select(ur => ur.UserId).ToListAsync(ct)).ToHashSet()
             : new HashSet<Guid>();
 
-        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin, secAdminIds.Contains(d.UserId) ? "SecondaryAdmin" : null));
+        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin, d.DeletedBySecAdmin, secAdminIds.Contains(d.UserId) ? "SecondaryAdmin" : null));
         return new PagedResult<DocumentDto>(dtos, total, request.Page, request.PageSize);
     }
 
@@ -340,6 +342,7 @@ public class AdminService : IAdminService
         var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == documentId && d.IsDeleted, ct)
             ?? throw new InvalidOperationException("Document not found or not deleted.");
         doc.IsDeleted = false;
+        doc.DeletedBySecAdmin = false;
         // DeletedAt intentionally kept — signals "admin-restored, not visible to user"
         await _db.SaveChangesAsync(ct);
         await _storage.RestoreAsync(doc.FilePath, ct);
@@ -377,7 +380,7 @@ public class AdminService : IAdminService
     {
         var docs = await _db.Documents
             .Include(d => d.Versions)
-            .Where(d => d.IsDeleted && !d.DeletedByAdmin)   // user-deleted only
+            .Where(d => d.IsDeleted && !d.DeletedByAdmin && !d.DeletedBySecAdmin)   // user-deleted only
             .ToListAsync(ct);
 
         foreach (var doc in docs)
@@ -513,5 +516,37 @@ public class AdminService : IAdminService
 
         await _userManager.RemoveFromRoleAsync(user, "SecondaryAdmin");
         await _logger.LogAsync("REVOKE_SECONDARY_ADMIN", "User", userId.ToString(), null, adminId, ct: ct);
+    }
+
+    public async Task SecAdminSoftDeleteOwnDocumentAsync(Guid documentId, Guid secAdminId, CancellationToken ct = default)
+    {
+        var doc = await _db.Documents.FindAsync([documentId], ct)
+            ?? throw new InvalidOperationException("Document not found.");
+        if (doc.IsDeleted)
+            throw new InvalidOperationException("Document is already deleted.");
+        if (doc.UserId != secAdminId)
+            throw new UnauthorizedAccessException("You can only delete your own documents.");
+        doc.IsDeleted = true;
+        doc.DeletedAt = DateTime.UtcNow;
+        doc.DeletedBySecAdmin = true;
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("SEC_ADMIN_DELETE", "Document", doc.Id.ToString(), doc.Title, secAdminId, ct: ct);
+    }
+
+    public async Task<int> AdminPurgeSecAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default)
+    {
+        var docs = await _db.Documents
+            .Include(d => d.Versions)
+            .Where(d => d.IsDeleted && d.DeletedBySecAdmin)
+            .ToListAsync(ct);
+
+        foreach (var doc in docs)
+            try { await _storage.PurgeAsync(doc.FilePath, ct); } catch { /* ignore missing files */ }
+
+        _db.DocumentVersions.RemoveRange(docs.SelectMany(d => d.Versions));
+        _db.Documents.RemoveRange(docs);
+        await _db.SaveChangesAsync(ct);
+        await _logger.LogAsync("PURGE_SEC_ADMIN_DELETED", "Document", null, $"Permanently deleted {docs.Count} sec-admin-deleted document(s)", adminId, ct: ct);
+        return docs.Count;
     }
 }

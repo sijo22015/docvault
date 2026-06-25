@@ -182,6 +182,8 @@ using (var scope = app.Services.CreateScope())
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by_admin boolean NOT NULL DEFAULT false");
     await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by_sec_admin boolean NOT NULL DEFAULT false");
+    await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE activity_logs DISABLE TRIGGER USER");
 
     // Rename old departments and add new ones to reach the full 21-item list

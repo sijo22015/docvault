@@ -19,5 +19,6 @@ public record DocumentDto(
     string FinancialYearLabel,
     string DocumentTypeName,
     bool DeletedByAdmin = false,
+    bool DeletedBySecAdmin = false,
     string? UploaderRole = null
 );

@@ -73,6 +73,7 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.Property(x => x.Tags).HasColumnName("tags").HasColumnType("text[]");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             e.Property(x => x.DeletedByAdmin).HasColumnName("deleted_by_admin").HasDefaultValue(false);
+            e.Property(x => x.DeletedBySecAdmin).HasColumnName("deleted_by_sec_admin").HasDefaultValue(false);
             e.Property(x => x.DeletedAt).HasColumnName("deleted_at");
             e.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
             e.Property(x => x.SubmittedAt).HasColumnName("submitted_at");

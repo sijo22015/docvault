@@ -13,6 +13,7 @@ public record DocumentSearchRequest(
     bool IncludeDeleted = false,
     bool OnlyDeleted = false,
     bool? OnlyDeletedByAdmin = null,
+    bool? OnlyDeletedBySecAdmin = null,
     int Page = 1,
     int PageSize = 20
 );

@@ -21,6 +21,8 @@ public interface IAdminService
     Task AdminHardDeleteDocumentAsync(Guid documentId, Guid adminId, CancellationToken ct = default);
     Task<int> AdminPurgeDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
     Task<int> AdminPurgeAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
+    Task SecAdminSoftDeleteOwnDocumentAsync(Guid documentId, Guid secAdminId, CancellationToken ct = default);
+    Task<int> AdminPurgeSecAdminDeletedDocumentsAsync(Guid adminId, CancellationToken ct = default);
     Task<int> DeleteActivityLogsAsync(DateTime? from, DateTime? to, Guid adminId, CancellationToken ct = default);
     Task<int> DeleteSelectedActivityLogsAsync(long[] ids, Guid adminId, CancellationToken ct = default);
     Task<List<NotificationDto>> GetNotificationsAsync(Guid adminId, CancellationToken ct = default);

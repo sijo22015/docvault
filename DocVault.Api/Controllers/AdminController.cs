@@ -140,6 +140,22 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { message = $"Permanently deleted {count} document(s).", count }, HttpContext.TraceIdentifier));
     }
 
+    [HttpDelete("documents/{id:guid}/sec-admin-delete")]
+    [Authorize(Roles = "SecondaryAdmin")]
+    public async Task<ActionResult<ApiResponse<object>>> SecAdminDeleteOwnDocument(Guid id, CancellationToken ct)
+    {
+        await _admin.SecAdminSoftDeleteOwnDocumentAsync(id, CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = "Document deleted." }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpDelete("documents/deleted-by-sec-admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> PurgeSecAdminDeleted(CancellationToken ct)
+    {
+        var count = await _admin.AdminPurgeSecAdminDeletedDocumentsAsync(CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { message = $"Permanently deleted {count} document(s).", count }, HttpContext.TraceIdentifier));
+    }
+
     [HttpPost("documents/{id:guid}/restore")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> AdminRestoreDocument(Guid id, CancellationToken ct)
