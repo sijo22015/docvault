@@ -125,7 +125,16 @@ public class MeController : ControllerBase
         CancellationToken ct = default)
     {
         var uid = CurrentUserId;
-        var query = _db.ActivityLogs.Where(l => l.UserId == uid);
+        // Admin / Secondary-Admin only actions — never shown in a personal user log.
+        // Hides activity performed while the user held an admin role (e.g. after demotion to User).
+        var adminActions = new[]
+        {
+            "APPROVE_USER", "REVOKE_USER", "DELETE_USER", "LOCK_FY",
+            "ADMIN_DELETE", "HARD_DELETE",
+            "PURGE_DELETED", "PURGE_ADMIN_DELETED", "PURGE_SEC_ADMIN_DELETED",
+            "GRANT_SECONDARY_ADMIN", "REVOKE_SECONDARY_ADMIN", "SEC_ADMIN_DELETE",
+        };
+        var query = _db.ActivityLogs.Where(l => l.UserId == uid && !adminActions.Contains(l.Action));
         if (!string.IsNullOrEmpty(action)) query = query.Where(l => l.Action == action.ToUpperInvariant());
         if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value.Date);
         if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.Date.AddDays(1));
