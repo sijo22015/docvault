@@ -222,13 +222,13 @@ public class AdminService : IAdminService
             .ToListAsync(ct);
 
         // Determine which uploaders are SecondaryAdmins so the UI can badge them
-        var uploaderIds = items.Where(d => d.UserId.HasValue).Select(d => d.UserId!.Value).Distinct().ToList();
+        var uploaderIds = items.Select(d => d.UserId).Distinct().ToList();
         var secAdminRoleId = await _db.Roles.Where(r => r.Name == "SecondaryAdmin").Select(r => r.Id).FirstOrDefaultAsync(ct);
         var secAdminIds = secAdminRoleId != default
             ? (await _db.UserRoles.Where(ur => ur.RoleId == secAdminRoleId && uploaderIds.Contains(ur.UserId)).Select(ur => ur.UserId).ToListAsync(ct)).ToHashSet()
             : new HashSet<Guid>();
 
-        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin, d.UserId.HasValue && secAdminIds.Contains(d.UserId.Value) ? "SecondaryAdmin" : null));
+        var dtos = items.Select(d => new DocumentDto(d.Id, d.Title, d.Description, d.OriginalFileName, d.ContentType, d.FileSizeBytes, d.Status, d.Tags, d.UploadedAt, d.SubmittedAt, d.IsDeleted, d.DeletedAt, d.User?.FullName ?? "", d.UserId, d.Department?.Name ?? "", d.FinancialYear?.Label ?? "", d.DocumentType?.Name ?? "", d.DeletedByAdmin, secAdminIds.Contains(d.UserId) ? "SecondaryAdmin" : null));
         return new PagedResult<DocumentDto>(dtos, total, request.Page, request.PageSize);
     }
 
