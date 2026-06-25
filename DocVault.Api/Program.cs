@@ -184,6 +184,36 @@ using (var scope = app.Services.CreateScope())
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE activity_logs DISABLE TRIGGER USER");
 
+    // Rename old departments and add new ones to reach the full 21-item list
+    await db.Database.ExecuteSqlRawAsync(
+        "UPDATE departments SET name = 'Mathematics & Statistics', code = 'MST' WHERE name = 'Mathematics'");
+    await db.Database.ExecuteSqlRawAsync(
+        "UPDATE departments SET name = 'Botany', code = 'BOT' WHERE name = 'Biology'");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Zoology', 'ZOO' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Zoology')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Software Development', 'SWD' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Software Development')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Multimedia', 'MUL' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Multimedia')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Accounting and Taxation', 'ACT' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Accounting and Taxation')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Business Administration', 'BBA' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Business Administration')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Banking,Financial Service and Insurance', 'BFSI' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Banking,Financial Service and Insurance')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Political Science', 'POL' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Political Science')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Sociology', 'SOC' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Sociology')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Hindi', 'HIN' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Hindi')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Fashion Technology', 'FT' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Fashion Technology')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Agricultural', 'AGR' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Agricultural')");
+    await db.Database.ExecuteSqlRawAsync(
+        "INSERT INTO departments (name, code) SELECT 'Community College', 'CC' WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Community College')");
+
     // Clean up legacy admin@docvault.local account (idempotent — safe on every startup)
     // Case 1: both old and new exist → delete old (new already present, no-rename needed)
     // Case 2: only old exists → rename it to new
@@ -275,16 +305,27 @@ using (var scope = app.Services.CreateScope())
     if (!await db.Departments.AnyAsync())
     {
         db.Departments.AddRange(
-            new DocVault.Domain.Entities.Department { Name = "Physics",          Code = "PHY" },
-            new DocVault.Domain.Entities.Department { Name = "Chemistry",        Code = "CHE" },
-            new DocVault.Domain.Entities.Department { Name = "Mathematics",      Code = "MAT" },
-            new DocVault.Domain.Entities.Department { Name = "English",          Code = "ENG" },
-            new DocVault.Domain.Entities.Department { Name = "Malayalam",        Code = "MAL" },
-            new DocVault.Domain.Entities.Department { Name = "Computer Science", Code = "CS"  },
-            new DocVault.Domain.Entities.Department { Name = "Biology",          Code = "BIO" },
-            new DocVault.Domain.Entities.Department { Name = "History",          Code = "HIS" },
-            new DocVault.Domain.Entities.Department { Name = "Economics",        Code = "ECO" },
-            new DocVault.Domain.Entities.Department { Name = "Commerce",         Code = "COM" }
+            new DocVault.Domain.Entities.Department { Name = "Physics",                                    Code = "PHY"  },
+            new DocVault.Domain.Entities.Department { Name = "Chemistry",                                  Code = "CHE"  },
+            new DocVault.Domain.Entities.Department { Name = "Botany",                                     Code = "BOT"  },
+            new DocVault.Domain.Entities.Department { Name = "Zoology",                                    Code = "ZOO"  },
+            new DocVault.Domain.Entities.Department { Name = "Computer Science",                            Code = "CS"   },
+            new DocVault.Domain.Entities.Department { Name = "Software Development",                        Code = "SWD"  },
+            new DocVault.Domain.Entities.Department { Name = "Mathematics & Statistics",                    Code = "MST"  },
+            new DocVault.Domain.Entities.Department { Name = "Commerce",                                    Code = "COM"  },
+            new DocVault.Domain.Entities.Department { Name = "English",                                     Code = "ENG"  },
+            new DocVault.Domain.Entities.Department { Name = "Multimedia",                                  Code = "MUL"  },
+            new DocVault.Domain.Entities.Department { Name = "Accounting and Taxation",                     Code = "ACT"  },
+            new DocVault.Domain.Entities.Department { Name = "Business Administration",                     Code = "BBA"  },
+            new DocVault.Domain.Entities.Department { Name = "Banking,Financial Service and Insurance",     Code = "BFSI" },
+            new DocVault.Domain.Entities.Department { Name = "Political Science",                           Code = "POL"  },
+            new DocVault.Domain.Entities.Department { Name = "History",                                     Code = "HIS"  },
+            new DocVault.Domain.Entities.Department { Name = "Sociology",                                   Code = "SOC"  },
+            new DocVault.Domain.Entities.Department { Name = "Malayalam",                                   Code = "MAL"  },
+            new DocVault.Domain.Entities.Department { Name = "Hindi",                                       Code = "HIN"  },
+            new DocVault.Domain.Entities.Department { Name = "Fashion Technology",                          Code = "FT"   },
+            new DocVault.Domain.Entities.Department { Name = "Agricultural",                                Code = "AGR"  },
+            new DocVault.Domain.Entities.Department { Name = "Community College",                           Code = "CC"   }
         );
         await db.SaveChangesAsync();
     }
