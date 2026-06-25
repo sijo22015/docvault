@@ -186,6 +186,8 @@ using (var scope = app.Services.CreateScope())
 
     // Rename old departments and add new ones to reach the full 21-item list
     await db.Database.ExecuteSqlRawAsync(
+        "UPDATE departments SET is_active = false WHERE name = 'Economics'");
+    await db.Database.ExecuteSqlRawAsync(
         "UPDATE departments SET name = 'Mathematics & Statistics', code = 'MST' WHERE name = 'Mathematics'");
     await db.Database.ExecuteSqlRawAsync(
         "UPDATE departments SET name = 'Botany', code = 'BOT' WHERE name = 'Biology'");
